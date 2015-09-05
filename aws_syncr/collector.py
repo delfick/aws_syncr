@@ -110,3 +110,10 @@ class Collector(Collector):
             return aws_syncr_spec.aws_syncr_spec.normalise(meta, v)
         configuration.add_converter(Converter(convert=aws_syncr_converter, convert_path=["aws_syncr"]))
 
+        def accounts_converter(p, v):
+            log.info("Converting %s", p)
+            meta = Meta(p.configuration, [("accounts", "")])
+            configuration.converters.started(p)
+            return aws_syncr_spec.accounts_spec.normalise(meta, v)
+        configuration.add_converter(Converter(convert=accounts_converter, convert_path=["accounts"]))
+

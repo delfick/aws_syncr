@@ -5,11 +5,18 @@ The specifications are responsible for sanitation, validation and normalisation.
 """
 
 from aws_syncr.formatter import MergedOptionStringFormatter
+from aws_syncr.errors import BadOption
 
-from input_algorithms.spec_base import defaulted, boolean, string_spec, formatted, create_spec, directory_spec
+from input_algorithms.spec_base import defaulted, boolean, string_spec, formatted, create_spec, directory_spec, dictof, string_or_int_as_string_spec
+from input_algorithms.validators import Validator
 from input_algorithms.dictobj import dictobj
 
 import six
+import re
+
+regexes = {
+      "amazon_account_id": re.compile('\d{12}')
+    }
 
 class AwsSyncr(dictobj):
     fields = {
@@ -19,18 +26,31 @@ class AwsSyncr(dictobj):
         , "config_folder": "The folder where the configuration can be found"
         }
 
+class valid_account_id(Validator):
+    def validate(self, meta, val):
+        """Validate an account_id"""
+        val = string_or_int_as_string_spec().normalise(meta, val)
+        if not regexes['amazon_account_id'].match(val):
+            raise BadOption("Account id must match a particular regex", got=val, should_match=regexes['amazon_account_id'].pattern)
+        return val
+
 class AwsSyncrSpec(object):
     """Knows about aws_syncr specific configuration"""
 
     @property
     def aws_syncr_spec(self):
-        formatted_string = formatted(string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
-
         """Spec for aws_syncr options"""
+        formatted_string = formatted(string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
         return create_spec(AwsSyncr
             , extra = defaulted(formatted_string, "")
             , debug = defaulted(boolean(), False)
             , environment = formatted_string
             , config_folder = directory_spec()
             )
+
+    @property
+    def accounts_spec(self):
+        """Spec for accounts options"""
+        formatted_account_id = formatted(valid_account_id(), MergedOptionStringFormatter, expected_type=six.string_types)
+        return dictof(string_spec(), formatted_account_id)
 
