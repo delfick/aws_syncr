@@ -5,9 +5,10 @@ The specifications are responsible for sanitation, validation and normalisation.
 """
 
 from aws_syncr.formatter import MergedOptionStringFormatter
+from aws_syncr.option_spec.roles import role_spec, Roles
 from aws_syncr.errors import BadOption
 
-from input_algorithms.spec_base import defaulted, boolean, string_spec, formatted, create_spec, directory_spec, dictof, string_or_int_as_string_spec
+from input_algorithms.spec_base import defaulted, boolean, string_spec, formatted, create_spec, directory_spec, dictof, string_or_int_as_string_spec, container_spec
 from input_algorithms.validators import Validator
 from input_algorithms.dictobj import dictobj
 
@@ -22,6 +23,7 @@ class AwsSyncr(dictobj):
     fields = {
           "debug": "Set debug capability"
         , "extra": "Sets the ``$@`` variable. Alternatively specify these after a ``--`` on the commandline"
+        , "location": "The location to base everything in"
         , "environment": "The environment to sync"
         , "config_folder": "The folder where the configuration can be found"
         }
@@ -44,6 +46,7 @@ class AwsSyncrSpec(object):
         return create_spec(AwsSyncr
             , extra = defaulted(formatted_string, "")
             , debug = defaulted(boolean(), False)
+            , location = defaulted(formatted_string, "ap-southeast-2")
             , environment = formatted_string
             , config_folder = directory_spec()
             )
@@ -53,4 +56,9 @@ class AwsSyncrSpec(object):
         """Spec for accounts options"""
         formatted_account_id = formatted(valid_account_id(), MergedOptionStringFormatter, expected_type=six.string_types)
         return dictof(string_spec(), formatted_account_id)
+
+    @property
+    def roles_spec(self):
+        """Spec for roles"""
+        return container_spec(Roles, dictof(string_spec(), role_spec()))
 

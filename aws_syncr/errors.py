@@ -27,8 +27,11 @@ class BadEnvironment(AwsSyncrError):
     desc = "Something bad in the environment"
 
 class BadTask(AwsSyncrError):
-	desc = "Bad task"
+    desc = "Bad task"
 
 class BadCredentials(AwsSyncrError):
-	desc = "Bad credentials"
+    desc = "Bad credentials"
+
+class BadPolicy(AwsSyncrError):
+    desc = "Bad policy"
 

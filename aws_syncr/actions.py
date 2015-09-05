@@ -1,3 +1,7 @@
+import logging
+
+log = logging.getLogger("aws_syncr.actions")
+
 available_actions = {}
 
 def an_action(func):
@@ -7,5 +11,7 @@ def an_action(func):
 @an_action
 def sync(collector):
     """Sync an environment"""
-    print("Syncing an environment")
+    for thing in ('roles', ):
+        log.info("Syncing %s", thing)
+        collector.configuration[thing].sync()
 
