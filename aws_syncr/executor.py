@@ -35,9 +35,9 @@ class App(App):
         available_actions[task](collector)
 
     def setup_other_logging(self, args, verbose=False, silent=False, debug=False):
-        logging.getLogger("boto3").setLevel([logging.CRITICAL, logging.ERROR][verbose or debug])
+        logging.getLogger("boto3").setLevel([logging.CRITICAL, logging.INFO][verbose or debug])
         logging.getLogger("requests").setLevel([logging.CRITICAL, logging.ERROR][verbose or debug])
-        logging.getLogger("botocore").setLevel([logging.CRITICAL, logging.ERROR][verbose or debug])
+        logging.getLogger("botocore").setLevel([logging.CRITICAL, logging.INFO][verbose or debug])
 
     def specify_other_args(self, parser, defaults):
         parser.add_argument("--config-folder"

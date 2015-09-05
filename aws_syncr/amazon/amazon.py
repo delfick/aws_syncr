@@ -1,7 +1,7 @@
 from aws_syncr.errors import BadCredentials, AwsSyncrError
+from aws_syncr.amazon.iam import Iam
 
 from botocore.exceptions import ClientError
-import boto3
 
 from contextlib import contextmanager
 import logging
@@ -9,10 +9,13 @@ import logging
 log = logging.getLogger("aws_syncr.amazon.amazon")
 
 class Amazon(object):
-    def __init__(self, environment, accounts, debug=False):
+    def __init__(self, environment, accounts, debug=False, dry_run=False):
         self.debug = debug
+        self.dry_run = dry_run
         self.accounts = accounts
         self.environment = environment
+
+        self.changes = False
 
     @property
     def all_roles(self):
@@ -30,7 +33,7 @@ class Amazon(object):
         """Make sure we are able to connect to the right account"""
         with self.catch_invalid_credentials():
             log.info("Finding a role to check the account id")
-            all_roles = self._all_roles = list(boto3.resource('iam').roles.all())
+            all_roles = self._all_roles = list(self.iam.resource.roles.all())
             if not all_roles:
                 raise AwsSyncrError("Couldn't find an iam role, can't validate the account....")
             account_id = all_roles[0].meta.data['Arn'].split(":", 5)[4]
@@ -41,7 +44,7 @@ class Amazon(object):
 
         with self.catch_invalid_credentials():
             log.info("Finding users in your account")
-            self._all_users = list(boto3.resource('iam').users.all())
+            self._all_users = list(self.iam.resource.users.all())
 
     @contextmanager
     def catch_invalid_credentials(self):
@@ -52,4 +55,11 @@ class Amazon(object):
                 raise BadCredentials("Failed to find valid credentials", error=error.message)
             else:
                 raise
+
+    @property
+    def iam(self):
+        iam = getattr(self, '_iam', None)
+        if not iam:
+            iam = self._iam = Iam(self, self.environment, self.accounts, self.dry_run)
+        return iam
 

@@ -56,6 +56,7 @@ class role_spec(object):
             , description = formatted_string
             , trust = sb.container_spec(Document, sb.listof(trust_statement_spec('roles', role_name)))
             , permission = sb.container_spec(Document, sb.listof(permission_statement_spec('roles', role_name)))
+            , make_instance_profile = sb.defaulted(sb.boolean(), False)
             ).normalise(meta, val)
 
 class Roles(dictobj):
@@ -70,13 +71,9 @@ class Role(dictobj):
     fields = {
         "name": "The name of the role"
       , "description": "The description of the role!"
+      , "make_instance_profile": "Whether to make an instance profile for this role as well"
 
       , "trust": "The trust document"
       , "permission": "Combination of allow_permission and deny_permission"
       }
-
-    def sync(self):
-        """Sync the role"""
-        print(self.trust.document)
-        print(self.permission.document)
 

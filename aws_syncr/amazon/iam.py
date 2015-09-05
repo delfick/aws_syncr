@@ -1,0 +1,113 @@
+from aws_syncr.amazon.common import AmazonMixin
+from aws_syncr.operations.differ import Differ
+
+from botocore.exceptions import ClientError
+import boto3
+
+import logging
+import json
+
+log = logging.getLogger("aws_syncr.amazon.iam")
+
+class Iam(AmazonMixin, object):
+    def __init__(self, amazon, environment, accounts, dry_run):
+        self.amazon = amazon
+        self.dry_run = dry_run
+
+        self.accounts = accounts
+        self.account_id = accounts[environment]
+        self.environment = environment
+
+        self.session = boto3.session.Session()
+        self.resource = self.session.resource('iam')
+
+    def role_info(self, role_name):
+        role = self.resource.Role(role_name.split('/')[-1])
+        with self.ignore_missing():
+            role.load()
+            return role
+
+    def create_role(self, name, trust_document, policies):
+        with self.catch_boto_400("Couldn't Make role", "{0} assume document".format(name), trust_document, role=name):
+            for _ in self.change("+", "role", role=name, document=trust_document):
+                self.resource.create_role(Path='/'.join(name.split('/')[:-1]), RoleName=name.split('/')[-1], AssumeRolePolicyDocument=trust_document)
+
+        if policies:
+            for policy_name, document in policies.items():
+                if document:
+                    with self.catch_boto_400("Couldn't add policy", "{0} - {1} Permission document".format(name, policy_name), document, role=name, policy_name=policy_name):
+                        for _ in self.change("+", "role_policy", role=name, policy=policy_name, document=document):
+                            self.resource.RolePolicy(name, policy_name).put(PolicyDocument=document)
+
+    def modify_role(self, role_info, name, trust_document, policies):
+        changes = list(Differ.compare_two_documents(json.dumps(role_info.assume_role_policy_document), trust_document))
+        if changes:
+            with self.catch_boto_400("Couldn't modify trust document", "{0} assume document".format(name), trust_document, role=name):
+                for _ in self.change("M", "trust_document", role=name, changes=changes):
+                    self.resource.AssumeRolePolicy(name.split('/')[-1]).update(PolicyDocument=trust_document)
+
+        with self.catch_boto_400("Couldn't get policies for a role", role=name):
+            current_policies = dict((policy.name, policy) for policy in role_info.policies.all())
+        unknown = [key for key in current_policies if key not in policies]
+
+        if unknown:
+            log.info("Role has unknown policies that will be disassociated\trole=%s\tunknown=%s", name, unknown)
+            for policy in unknown:
+                with self.catch_boto_400("Couldn't delete a policy from a role", policy=policy, role=name):
+                    for _ in self.change("-", "role_policy", role=name, policy=policy):
+                        current_policies[policy].delete()
+
+        for policy, document in policies.items():
+            if not document:
+                if policy in current_policies:
+                    with self.catch_boto_400("Couldn't delete a policy from a role", policy=policy, role=name):
+                        for _ in self.change("-", "policy", role=name, policy=policy):
+                            current_policies[policy].delete()
+            else:
+                needed = False
+                changes = None
+
+                if policy in current_policies:
+                    changes = list(Differ.compare_two_documents(json.dumps(current_policies.get(policy).policy_document), document))
+                    if changes:
+                        log.info("Overriding existing policy\trole=%s\tpolicy=%s", name, policy)
+                        needed = True
+                else:
+                    log.info("Adding policy to existing role\trole=%s\tpolicy=%s", name, policy)
+                    needed = True
+
+                if needed:
+                    with self.catch_boto_400("Couldn't add policy document", "{0} - {1} policy document".format(name, policy), document, role=name, policy=policy):
+                        symbol = "M" if changes else "+"
+                        for _ in self.change(symbol, "role_policy", role=name, policy=policy, changes=changes, document=document):
+                            current_policies[policy].put(PolicyDocument=document)
+
+    def make_instance_profile(self, name):
+        role_name = name.split('/')[-1]
+        existing_roles_in_profile = None
+        with self.ignore_missing():
+            existing_roles_in_profile = self.resource.InstanceProfile(role_name).roles
+
+        if existing_roles_in_profile is None:
+            try:
+                with self.catch_boto_400("Couldn't create instance profile", instance_profile=name):
+                    for _ in self.change("+", "instance_profile", profile=name):
+                        self.resource.InstanceProfile(role_name).add_role(RoleName=role_name)
+            except ClientError as error:
+                if error.response["ResponseMetadata"]["HTTPStatusCode"] == 409:
+                    # I'd rather ignore this conflict, than list all the instance_profiles
+                    # Basically, the instance exists but isn't associated with the role
+                    pass
+                else:
+                    raise
+
+        if existing_roles_in_profile and any(rl.name != role_name for rl in existing_roles_in_profile):
+            for role in [rl for rl in existing_roles_in_profile if rl.name != role_name]:
+                with self.catch_boto_400("Couldn't remove role from an instance profile", profile=role_name, role=role):
+                    for _ in self.change("-", "instance_profile_role", profile=role_name, role=role):
+                        self.resource.InstanceProfile(role_name).remove_role(RoleName=role)
+
+        if not existing_roles_in_profile or not any(rl.name == role_name for rl in existing_roles_in_profile):
+            with self.catch_boto_400("Couldn't add role to an instance profile", role=name, instance_profile=role_name):
+                for _ in self.change("+", "instance_profile_role", profile=role_name, role=role_name):
+                    self.resource.InstanceProfile(role_name).add_role(RoleName=role_name)

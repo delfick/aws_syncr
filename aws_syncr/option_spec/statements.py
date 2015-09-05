@@ -68,7 +68,9 @@ class permission_statement_spec(statement_spec):
     args = lambda s, self_type, self_name: {
           'sid': sb.string_spec()
         , 'effect': sb.string_choice_spec(choices=["Deny", "Allow"])
-        , 'action': sb.string_spec()
+
+        , 'action': sb.listof(sb.string_spec())
+        , ("not", "action"): sb.listof(sb.string_spec())
 
         , 'resource': resource_spec(self_type, self_name)
         , ('not', 'resource'): resource_spec(self_type, self_name)
@@ -85,7 +87,9 @@ class trust_statement_spec(statement_spec):
           'sid': sb.string_spec()
 
         , 'effect': sb.string_choice_spec(choices=["Deny", "Allow"])
-        , 'action': sb.string_spec()
+
+        , 'action': sb.listof(sb.string_spec())
+        , ("not", "action"): sb.listof(sb.string_spec())
 
         , 'resource': resource_spec(self_type, self_name)
         , ('not', 'resource'): resource_spec(self_type, self_name)
@@ -151,12 +155,12 @@ class principal_spec(sb.Spec):
         return result
 
 class PermissionStatement(dictobj):
-    fields = ['sid', 'effect', 'action', 'resource', 'notresource', 'condition', 'notcondition']
+    fields = ['sid', 'effect', 'action', 'notaction', 'resource', 'notresource', 'condition', 'notcondition']
 
     @property
     def statement(self):
         statement = {
-              "Sid": self.sid, "Effect": self.effect, "Action": self.action
+              "Sid": self.sid, "Effect": self.effect, "Action": self.action, "NotAction": self.notaction
             , "Resource": self.resource, "NotResource": self.notresource
             , "Condition": self.condition, "NotCondition": self.notcondition
             }
@@ -164,9 +168,6 @@ class PermissionStatement(dictobj):
         for key, val in list(statement.items()):
             if val is NotSpecified:
                 del statement[key]
-
-        if "Sid" not in statement:
-            statement["Sid"] = ""
 
         for thing in ("Action", "NotAction", "Resource", "NotResource"):
             if thing in statement and isinstance(statement[thing], list):
@@ -178,12 +179,12 @@ class PermissionStatement(dictobj):
         return statement
 
 class TrustStatement(dictobj):
-    fields = ['sid', 'effect', 'action', 'resource', 'notresource', 'principal', 'notprincipal', 'condition', 'notcondition']
+    fields = ['sid', 'effect', 'action', 'notaction', 'resource', 'notresource', 'principal', 'notprincipal', 'condition', 'notcondition']
 
     @property
     def statement(self):
         statement = {
-              "Sid": self.sid, "Effect": self.effect, "Action": self.action
+              "Sid": self.sid, "Effect": self.effect, "Action": self.action, "NotAction": self.notaction
             , "Resource": self.resource, "NotResource": self.notresource
             , "Principal": self.principal, "NotPrincipal": self.notprincipal
             , "Condition": self.condition, "NotCondition": self.notcondition
@@ -193,7 +194,7 @@ class TrustStatement(dictobj):
             if val is NotSpecified:
                 del statement[key]
 
-        if "Action" not in statement:
+        if "Action" not in statement and 'NotAction' not in statement:
             statement["Action"] = "sts:AssumeRole"
 
         if "Sid" not in statement:

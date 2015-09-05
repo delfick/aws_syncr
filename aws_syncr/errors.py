@@ -38,3 +38,6 @@ class BadPolicy(AwsSyncrError):
 class InvalidDocument(AwsSyncrError):
     desc = "Bad document"
 
+class BadAmazon(AwsSyncrError):
+    desc = "Bad Amazon"
+

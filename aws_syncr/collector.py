@@ -47,9 +47,10 @@ class Collector(Collector):
             environment_files.extend(os.path.join(root, filename) for filename in files)
 
         for filename in environment_files:
-            actual_file = os.path.abspath(os.path.join(os.path.dirname(filename), os.readlink(filename)))
-            if os.path.islink(filename) and actual_file in common_files:
-                common_files = [filename for filename in common_files if filename != actual_file]
+            if os.path.islink(filename):
+                actual_file = os.path.abspath(os.path.join(os.path.dirname(filename), os.readlink(filename)))
+                if os.path.islink(filename) and actual_file in common_files:
+                    common_files = [filename for filename in common_files if filename != actual_file]
 
         with tempfile.NamedTemporaryFile() as fle:
             json.dump({"includes": common_files + environment_files}, fle)
@@ -75,7 +76,8 @@ class Collector(Collector):
 
     def extra_prepare_after_activation(self, configuration, cli_args):
         """Setup our connection to amazon"""
-        configuration["amazon"] = Amazon(configuration['aws_syncr'].environment, configuration['accounts'], debug=configuration['aws_syncr'].debug)
+        aws_syncr = configuration['aws_syncr']
+        configuration["amazon"] = Amazon(configuration['aws_syncr'].environment, configuration['accounts'], debug=aws_syncr.debug, dry_run=aws_syncr.dry_run)
         configuration["amazon"].validate_account()
 
     def home_dir_configuration_location(self):

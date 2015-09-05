@@ -22,6 +22,7 @@ regexes = {
 class AwsSyncr(dictobj):
     fields = {
           "debug": "Set debug capability"
+        , "dry_run": "Whether to do a dry run or not"
         , "extra": "Sets the ``$@`` variable. Alternatively specify these after a ``--`` on the commandline"
         , "location": "The location to base everything in"
         , "environment": "The environment to sync"
@@ -46,6 +47,7 @@ class AwsSyncrSpec(object):
         return create_spec(AwsSyncr
             , extra = defaulted(formatted_string, "")
             , debug = defaulted(boolean(), False)
+            , dry_run = defaulted(boolean(), False)
             , location = defaulted(formatted_string, "ap-southeast-2")
             , environment = formatted_string
             , config_folder = directory_spec()

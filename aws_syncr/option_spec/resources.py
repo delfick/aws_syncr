@@ -135,26 +135,20 @@ class resource_spec(sb.Spec):
         self.self_name = self_name
 
     def normalise(self, meta, val):
-        s3_spec = s3_specs(val, self.self_type, self.self_name)
-        iam_spec = iam_specs(val, self.self_type, self.self_name)
-        kms_spec = kms_specs(val, self.self_type, self.self_name)
-        sns_spec = sns_specs(val, self.self_type, self.self_name)
-
         result = []
-        for item in sb.listof(sb.any_spec()).normalise(meta, val):
+        for index, item in enumerate(sb.listof(sb.any_spec()).normalise(meta, val)):
+            s3_spec = s3_specs(item, self.self_type, self.self_name)
+            iam_spec = iam_specs(item, self.self_type, self.self_name)
+            kms_spec = kms_specs(item, self.self_type, self.self_name)
+            sns_spec = sns_specs(item, self.self_type, self.self_name)
+
             if isinstance(item, six.string_types):
                 result.append(item)
             else:
                 types = (("iam", iam_spec), ("kms", kms_spec), ("sns", sns_spec), ("s3", s3_spec))
-                type_names = [typ[0] for typ in types]
-
                 for typ, spec in types:
-                    if typ in val:
-                        for found in spec.normalise(meta.at(typ), val[typ]):
+                    if typ in item:
+                        for found in spec.normalise(meta.indexed_at(index).at(typ), item[typ]):
                             result.append(found)
-
-                unknown = [key for key in val if key not in type_names]
-                if unknown:
-                    raise BadPolicy("Unknown resource types", unknown=unknown, meta=meta)
         return sorted(result)
 
