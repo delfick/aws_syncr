@@ -13,6 +13,9 @@ setup(
       , "input_algorithms==0.4.4.7"
 
       , "six"
+
+      , "boto3==1.1.3"
+      , "pyYaml==3.10"
       ]
 
     , extras_require =
