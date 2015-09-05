@@ -1,5 +1,6 @@
 from aws_syncr.errors import BadPolicy
 
+from input_algorithms.spec_base import NotSpecified
 from input_algorithms import spec_base as sb
 import six
 
@@ -20,9 +21,9 @@ class iam_specs(sb.Spec):
                 if provided_account not in accounts:
                     raise BadPolicy("Unknown account specified", account=provided_account, meta=meta)
                 else:
-                    account_id = self.accounts[provided_account]
+                    account_id = accounts[provided_account]
 
-        users = sb.listof(sb.string_spec()).normalise(meta.at("users"), self.resource.get('users', ""))
+        users = sb.listof(sb.string_spec()).normalise(meta.at("users"), self.resource.get('users', NotSpecified))
         for name in sb.listof(sb.any_spec()).normalise(meta, val):
             if name == "__self__":
                 if self.self_type == 'bucket':
@@ -96,7 +97,7 @@ class kms_specs(sb.Spec):
                     if provided_account not in accounts:
                         raise BadPolicy("Unknown account specified", account=provided_account, meta=meta)
                     else:
-                        account_id = self.accounts[provided_account]
+                        account_id = accounts[provided_account]
 
                 if alias:
                     yield "arn:aws:kms:{0}:{1}:alias/{2}".format(location, account_id, alias)
@@ -124,7 +125,7 @@ class sns_specs(sb.Spec):
                     if provided_account not in accounts:
                         raise BadPolicy("Unknown account specified", account=provided_account, meta=meta)
                     else:
-                        account_id = self.accounts[provided_account]
+                        account_id = accounts[provided_account]
 
                 yield "arn:aws:sns:{0}:{1}:{2}".format(location, account_id, key_id)
 

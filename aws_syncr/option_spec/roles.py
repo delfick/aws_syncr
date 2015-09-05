@@ -1,6 +1,7 @@
 from aws_syncr.option_spec.resources import resource_spec, iam_specs
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.statements import statement_spec
+from aws_syncr.option_spec.documents import Document
 from aws_syncr.errors import BadOption
 
 from input_algorithms.spec_base import NotSpecified
@@ -36,10 +37,13 @@ class principal_spec(sb.Spec):
               service = sb.listof(principal_service_spec())
             , federated = iam_spec
             , iam = iam_spec
-            )
+            ).normalise(meta, val)
 
         for arg, lst in special.items():
-            result[arg.capitalize()].extend(lst)
+            capitalized = arg.capitalize()
+            if arg == 'iam':
+                capitalized = "AWS"
+            result[capitalized].extend(lst)
 
         for key, val in list(result.items()):
             if not val:
@@ -68,6 +72,17 @@ class permission_dict(sb.Spec):
                 val['Effect'] = self.effect
         return val
 
+class trust_dict(sb.Spec):
+    def setup(self, principal):
+        self.principal = principal
+
+    def normalise(self, meta, val):
+        val = sb.dictionary_spec().normalise(meta, val)
+        if self.principal in val:
+            raise BadOption("Please don't manually specify principal or notprincipal in a trust statement", meta=meta)
+        val[self.principal] = val
+        return val
+
 class permission_statement_spec(statement_spec):
     args = lambda s, self_type, self_name: {
           'sid': sb.string_spec()
@@ -80,6 +95,7 @@ class permission_statement_spec(statement_spec):
         , 'condition': sb.dictionary_spec()
         , ('not', 'condition'): sb.dictionary_spec()
         }
+    required = [('action', 'notaction'), 'effect', ('resource', 'notresource')]
     invalid_args = ['principal', ('not', 'principal')]
     final_kls = lambda s, *args, **kwargs: PermissionStatement(*args, **kwargs)
 
@@ -92,8 +108,8 @@ class trust_statement_spec(statement_spec):
         , 'resource': resource_spec(self_type, self_name)
         , ('not', 'resource'): resource_spec(self_type, self_name)
 
-        , 'principal': sb.listof(principal_spec(self_type, self_name))
-        , ('not', 'principal'): sb.listof(principal_spec(self_type, self_name))
+        , 'principal': principal_spec(self_type, self_name)
+        , ('not', 'principal'): principal_spec(self_type, self_name)
 
         , 'condition': sb.dictionary_spec()
         , ('not', 'condition'): sb.dictionary_spec()
@@ -102,7 +118,7 @@ class trust_statement_spec(statement_spec):
 
     def normalise(self, meta, val):
         val = super(trust_statement_spec, self).normalise(meta, val)
-        have_federated = val.principal is not NotSpecified and "Federated" in val.principal or val.notprincipal is not NotSpecified and "Federated" in val.notprincipal
+        have_federated = val.principal is not NotSpecified and val.principal.get("Federated") or val.notprincipal is not NotSpecified and val.notprincipal.get("Federated")
         if have_federated and val.action is NotSpecified:
             val.action = "sts:AssumeRoleWithSAML"
         return val
@@ -116,24 +132,76 @@ class role_spec(object):
         deny_permission = sb.listof(permission_dict(effect='Deny')).normalise(meta.at("deny_permission"), val.get("deny_permission", NotSpecified))
         allow_permission = sb.listof(permission_dict(effect='Allow')).normalise(meta.at("allow_permission"), val.get("allow_permission", NotSpecified))
 
+        allow_to_assume_me = sb.listof(trust_dict("principal")).normalise(meta.at("allow_to_assume_me"), val.get("allow_to_assume_me", NotSpecified))
+        disallow_to_assume_me = sb.listof(trust_dict("notprincipal")).normalise(meta.at("disallow_to_assume_me"), val.get("disallow_to_assume_me", NotSpecified))
+
+        val['trust'] = allow_to_assume_me + disallow_to_assume_me
         val['permission'] = original_permission + deny_permission + allow_permission
         return sb.create_spec(Role
+            , name = sb.overridden(role_name)
             , description = formatted_string
-            , allow_to_assume_me = sb.container_spec(TrustDocument, sb.listof(trust_statement_spec('roles', role_name)))
-            , permission = sb.container_spec(PermissionDocument, sb.listof(permission_statement_spec('roles', role_name)))
+            , trust = sb.container_spec(Document, sb.listof(trust_statement_spec('roles', role_name)))
+            , permission = sb.container_spec(Document, sb.listof(permission_statement_spec('roles', role_name)))
             ).normalise(meta, val)
-
-class TrustDocument(dictobj):
-    fields = ["statements"]
-
-class PermissionDocument(dictobj):
-    fields = ["statements"]
 
 class PermissionStatement(dictobj):
     fields = ['sid', 'effect', 'action', 'resource', 'notresource', 'condition', 'notcondition']
 
+    @property
+    def statement(self):
+        statement = {
+              "Sid": self.sid, "Effect": self.effect, "Action": self.action
+            , "Resource": self.resource, "NotResource": self.notresource
+            , "Condition": self.condition, "NotCondition": self.notcondition
+            }
+
+        for key, val in list(statement.items()):
+            if val is NotSpecified:
+                del statement[key]
+
+        if "Sid" not in statement:
+            statement["Sid"] = ""
+
+        for thing in ("Action", "NotAction", "Resource", "NotResource"):
+            if thing in statement and isinstance(statement[thing], list):
+                if len(statement[thing]) == 1:
+                    statement[thing] = statement[thing][0]
+                else:
+                    statement[thing] = sorted(statement[thing])
+
+        return statement
+
 class TrustStatement(dictobj):
     fields = ['sid', 'effect', 'action', 'resource', 'notresource', 'principal', 'notprincipal', 'condition', 'notcondition']
+
+    @property
+    def statement(self):
+        statement = {
+              "Sid": self.sid, "Effect": self.effect, "Action": self.action
+            , "Resource": self.resource, "NotResource": self.notresource
+            , "Principal": self.principal, "NotPrincipal": self.notprincipal
+            , "Condition": self.condition, "NotCondition": self.notcondition
+            }
+
+        for key, val in list(statement.items()):
+            if val is NotSpecified:
+                del statement[key]
+
+        if "Action" not in statement:
+            statement["Action"] = "sts:AssumeRole"
+
+        if "Sid" not in statement:
+            statement["Sid"] = ""
+
+        if "Effect" not in statement:
+            statement["Effect"] = "Allow"
+
+        for principal in ("principal", "notprincipal", "Principal", "NotPrincipal"):
+            for key, v in list(statement.get(principal, {}).items()):
+                if not v:
+                    del statement[principal][key]
+
+        return statement
 
 class Roles(dictobj):
     fields = ['roles']
@@ -145,11 +213,15 @@ class Roles(dictobj):
 
 class Role(dictobj):
     fields = {
-        "description": "The description of the role!"
+        "name": "The name of the role"
+      , "description": "The description of the role!"
+
+      , "trust": "The trust document"
       , "permission": "Combination of allow_permission and deny_permission"
-      , "allow_to_assume_me": "The trust document"
       }
 
     def sync(self):
         """Sync the role"""
+        print(self.trust.document)
+        print(self.permission.document)
 

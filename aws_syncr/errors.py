@@ -35,3 +35,6 @@ class BadCredentials(AwsSyncrError):
 class BadPolicy(AwsSyncrError):
     desc = "Bad policy"
 
+class InvalidDocument(AwsSyncrError):
+    desc = "Bad document"
+
