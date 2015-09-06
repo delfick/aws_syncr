@@ -10,7 +10,21 @@ import logging
 
 log = logging.getLogger("aws_syncr.amazon.amazon")
 
-class Amazon(object):
+class ValidatingMemoizedProperty(object):
+    def __init__(self, kls, key):
+        self.kls = kls
+        self.key = key
+
+    def __get__(self, instance, owner):
+        obj = getattr(instance, self.key, None)
+        if not obj:
+            if not getattr(instance, "_validated", False) and not getattr(instance, "_validating", False):
+                instance.validate_account()
+            obj = self.kls(instance, instance.environment, instance.accounts, instance.dry_run)
+            setattr(instance, self.key, obj)
+        return obj
+
+class Amazon(AmazonMixin, object):
     def __init__(self, environment, accounts, debug=False, dry_run=False):
         self.debug = debug
         self.dry_run = dry_run
@@ -19,6 +33,9 @@ class Amazon(object):
 
         self.changes = False
         self.session = boto3.session.Session()
+
+    s3 = ValidatingMemoizedProperty(S3, "_s3")
+    iam = ValidatingMemoizedProperty(Iam, "_iam")
 
     @property
     def all_roles(self):
@@ -62,22 +79,4 @@ class Amazon(object):
                 raise BadCredentials("Failed to find valid credentials", error=error.message)
             else:
                 raise
-
-    @property
-    def iam(self):
-        iam = getattr(self, '_iam', None)
-        if not iam:
-            if not getattr(self, "_validated", False) and not getattr(self, "_validating", False):
-                self.validate_account()
-            iam = self._iam = Iam(self, self.environment, self.accounts, self.dry_run)
-        return iam
-
-    @property
-    def s3(self):
-        s3 = getattr(self, '_s3', None)
-        if not s3:
-            if not getattr(self, "_validated", False) and not getattr(self, "_validating", False):
-                self.validate_account()
-            s3 = self._s3 = S3(self, self.environment, self.accounts, self.dry_run)
-        return s3
 
