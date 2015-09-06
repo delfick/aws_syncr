@@ -1,5 +1,8 @@
 from datadiff import diff
+import logging
 import json
+
+log = logging.getLogger("aws_syncr.operations.differ")
 
 class Differ(object):
     @classmethod
@@ -7,12 +10,14 @@ class Differ(object):
         """Compare two documents by converting them into json objects and back to strings and compare"""
         try:
             first = json.loads(doc1)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as error:
+            log.warning("Failed to convert doc into a json object\terror=%s", error)
             return
 
         try:
             second = json.loads(doc2)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as error:
+            log.warning("Failed to convert doc into a json object\terror=%s", error)
             return
 
         # Ordering the principals because the ordering amazon gives me hates me
