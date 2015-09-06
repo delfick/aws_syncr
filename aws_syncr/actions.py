@@ -19,7 +19,8 @@ def sync(collector):
     # Convert everything before we try and sync anything
     converted = {}
     for thing, singular in (("roles", "role"), ("buckets", "bucket")):
-        converted[thing] = (singular, getattr(collector.configuration[thing], thing).items())
+        if thing in collector.configuration:
+            converted[thing] = (singular, getattr(collector.configuration[thing], thing).items())
 
     # Do the sync
     for singular, items in converted.values():
