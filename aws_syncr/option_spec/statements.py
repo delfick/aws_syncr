@@ -249,7 +249,6 @@ class ResourcePolicyStatement(dictobj):
             if principal in statement:
                 self.merge_principal(statement, principal)
 
-        for principal in ("principal", "notprincipal", "Principal", "NotPrincipal"):
             for key, v in list(statement.get(principal, {}).items()):
                 if not v:
                     del statement[principal][key]

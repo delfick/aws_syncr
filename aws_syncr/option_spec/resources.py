@@ -23,22 +23,22 @@ class iam_specs(sb.Spec):
                 else:
                     account_id = accounts[provided_account]
 
-        users = sb.listof(sb.string_spec()).normalise(meta.at("users"), self.resource.get('users', NotSpecified))
-        for name in sb.listof(sb.any_spec()).normalise(meta, val):
-            if name == "__self__":
-                if self.self_type == 'bucket':
-                    raise BadPolicy("Bucket policy has no __self__ iam role", meta=meta)
+            users = sb.listof(sb.string_spec()).normalise(meta.at("users"), self.resource.get('users', NotSpecified))
+            for name in sb.listof(sb.any_spec()).normalise(meta, val):
+                if name == "__self__":
+                    if self.self_type == 'bucket':
+                        raise BadPolicy("Bucket policy has no __self__ iam role", meta=meta)
 
-                account_id = default_account_id
-                name = "role/{0}".format(self.self_name)
+                    account_id = default_account_id
+                    name = "role/{0}".format(self.self_name)
 
-            service = "sts" if name.startswith("assumed-role") else "iam"
-            arn = "arn:aws:{0}::{1}:{2}".format(service, account_id, name)
-            if not users:
-                yield arn
-            else:
-                for user in users:
-                    yield "{0}/{1}".format(arn, user)
+                service = "sts" if name.startswith("assumed-role") else "iam"
+                arn = "arn:aws:{0}::{1}:{2}".format(service, account_id, name)
+                if not users:
+                    yield arn
+                else:
+                    for user in users:
+                        yield "{0}/{1}".format(arn, user)
 
 class s3_specs(sb.Spec):
     def setup(self, resource, self_type, self_name):
