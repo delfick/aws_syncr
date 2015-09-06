@@ -1,5 +1,6 @@
 from aws_syncr.errors import BadCredentials, AwsSyncrError
 from aws_syncr.amazon.iam import Iam
+import boto3
 
 from botocore.exceptions import ClientError
 
@@ -16,6 +17,7 @@ class Amazon(object):
         self.environment = environment
 
         self.changes = False
+        self.session = boto3.session.Session()
 
     @property
     def all_roles(self):

@@ -18,8 +18,7 @@ class Iam(AmazonMixin, object):
         self.account_id = accounts[environment]
         self.environment = environment
 
-        self.session = boto3.session.Session()
-        self.resource = self.session.resource('iam')
+        self.resource = self.amazon.session.resource('iam')
 
     def role_info(self, role_name):
         role = self.resource.Role(role_name.split('/')[-1])
