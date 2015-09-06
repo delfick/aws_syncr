@@ -20,4 +20,14 @@ class Syncer(object):
 
     def sync_bucket(self, bucket):
         """Make sure this bucket exists and has only attributes we want it to have"""
-        pass
+        if bucket.permission.statements:
+            permission_document = bucket.permission.document
+        else:
+            permission_document = ""
+
+        bucket_info = self.amazon.s3.bucket_info(bucket.name)
+        if not bucket_info:
+            self.amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags)
+        else:
+            self.amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags)
+

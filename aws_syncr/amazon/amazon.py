@@ -1,5 +1,6 @@
 from aws_syncr.errors import BadCredentials, AwsSyncrError
 from aws_syncr.amazon.iam import Iam
+from aws_syncr.amazon.s3 import S3
 import boto3
 
 from botocore.exceptions import ClientError
@@ -70,4 +71,13 @@ class Amazon(object):
                 self.validate_account()
             iam = self._iam = Iam(self, self.environment, self.accounts, self.dry_run)
         return iam
+
+    @property
+    def s3(self):
+        s3 = getattr(self, '_s3', None)
+        if not s3:
+            if not getattr(self, "_validated", False) and not getattr(self, "_validating", False):
+                self.validate_account()
+            s3 = self._s3 = S3(self, self.environment, self.accounts, self.dry_run)
+        return s3
 
