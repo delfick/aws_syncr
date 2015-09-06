@@ -1,12 +1,13 @@
 from aws_syncr.option_spec.statements import trust_statement_spec, permission_statement_spec
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.documents import Document
-from aws_syncr.errors import BadOption
+from aws_syncr.errors import BadOption, BadTemplate
 
 from input_algorithms.spec_base import NotSpecified
 from input_algorithms.dictobj import dictobj
 from input_algorithms import spec_base as sb
 
+from option_merge import MergedOptions
 import logging
 import six
 
@@ -39,6 +40,14 @@ class trust_dict(sb.Spec):
 
 class role_spec(object):
     def normalise(self, meta, val):
+        if 'use' in val:
+            template = val['use']
+            if template not in meta.everything['templates']:
+                available = list(meta.everything['templates'].keys())
+                raise BadTemplate("Template doesn't exist!", wanted=template, available=available, meta=meta)
+
+            val = MergedOptions.using(meta.everything['templates'][template], val)
+
         formatted_string = sb.formatted(sb.string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
         role_name = meta.key_names()['_key_name_0']
 

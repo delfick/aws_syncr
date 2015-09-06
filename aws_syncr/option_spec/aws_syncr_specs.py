@@ -8,7 +8,10 @@ from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.roles import role_spec, Roles
 from aws_syncr.errors import BadOption
 
-from input_algorithms.spec_base import defaulted, boolean, string_spec, formatted, create_spec, directory_spec, dictof, string_or_int_as_string_spec, container_spec
+from input_algorithms.spec_base import (
+      defaulted, boolean, string_spec, formatted, create_spec, dictionary_spec
+    , directory_spec, dictof, string_or_int_as_string_spec, container_spec
+    )
 from input_algorithms.validators import Validator
 from input_algorithms.dictobj import dictobj
 
@@ -63,4 +66,9 @@ class AwsSyncrSpec(object):
     def roles_spec(self):
         """Spec for roles"""
         return container_spec(Roles, dictof(string_spec(), role_spec()))
+
+    @property
+    def templates_spec(self):
+        """Spec for templates"""
+        return dictof(string_spec(), dictionary_spec())
 

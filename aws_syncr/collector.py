@@ -71,6 +71,7 @@ class Collector(Collector):
         self.configuration.update(
             { "$@": aws_syncr.get("extra", "")
             , "aws_syncr": aws_syncr
+            , "templates": {}
             }
         , source = "<cli_args>"
         )
@@ -126,3 +127,10 @@ class Collector(Collector):
             configuration.converters.started(p)
             return aws_syncr_spec.roles_spec.normalise(meta, v)
         configuration.add_converter(Converter(convert=roles_converter, convert_path=["roles"]))
+
+        def templates_converter(p, v):
+            log.info("Converting %s", p)
+            meta = Meta(p.configuration, [("templates", "")])
+            configuration.converters.started(p)
+            return aws_syncr_spec.templates_spec.normalise(meta, v)
+        configuration.add_converter(Converter(convert=templates_converter, convert_path=["templates"]))

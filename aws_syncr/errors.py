@@ -41,3 +41,5 @@ class InvalidDocument(AwsSyncrError):
 class BadAmazon(AwsSyncrError):
     desc = "Bad Amazon"
 
+class BadTemplate(AwsSyncrError):
+    desc = "Bad template"
