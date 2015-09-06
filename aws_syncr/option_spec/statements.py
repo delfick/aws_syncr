@@ -131,7 +131,7 @@ class principal_spec(sb.Spec):
 
         special = sb.set_options(
               service = sb.listof(principal_service_spec())
-            , federated = iam_spec
+            , federated = resource_spec(self.self_type, self.self_name)
             , iam = iam_spec
             ).normalise(meta, val)
 
