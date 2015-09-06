@@ -1,11 +1,9 @@
 from aws_syncr.errors import BadCredentials, AwsSyncrError
+from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.amazon.iam import Iam
 from aws_syncr.amazon.s3 import S3
 import boto3
 
-from botocore.exceptions import ClientError
-
-from contextlib import contextmanager
 import logging
 
 log = logging.getLogger("aws_syncr.amazon.amazon")
@@ -69,14 +67,4 @@ class Amazon(AmazonMixin, object):
 
         self._validating = False
         self._validated = True
-
-    @contextmanager
-    def catch_invalid_credentials(self):
-        try:
-            yield
-        except ClientError as error:
-            if error.response["ResponseMetadata"]["HTTPStatsuCode"] == 403:
-                raise BadCredentials("Failed to find valid credentials", error=error.message)
-            else:
-                raise
 
