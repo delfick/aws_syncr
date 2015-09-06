@@ -31,6 +31,7 @@ class Amazon(object):
 
     def validate_account(self):
         """Make sure we are able to connect to the right account"""
+        self._validating = True
         with self.catch_invalid_credentials():
             log.info("Finding a role to check the account id")
             all_roles = self._all_roles = list(self.iam.resource.roles.all())
@@ -46,6 +47,9 @@ class Amazon(object):
             log.info("Finding users in your account")
             self._all_users = list(self.iam.resource.users.all())
 
+        self._validating = False
+        self._validated = True
+
     @contextmanager
     def catch_invalid_credentials(self):
         try:
@@ -60,6 +64,8 @@ class Amazon(object):
     def iam(self):
         iam = getattr(self, '_iam', None)
         if not iam:
+            if not getattr(self, "_validated", False) and not getattr(self, "_validating", False):
+                self.validate_account()
             iam = self._iam = Iam(self, self.environment, self.accounts, self.dry_run)
         return iam
 

@@ -80,7 +80,6 @@ class Collector(Collector):
         """Setup our connection to amazon"""
         aws_syncr = configuration['aws_syncr']
         configuration["amazon"] = Amazon(configuration['aws_syncr'].environment, configuration['accounts'], debug=aws_syncr.debug, dry_run=aws_syncr.dry_run)
-        configuration["amazon"].validate_account()
 
     def home_dir_configuration_location(self):
         return os.path.expanduser("~/.aws_syncrrc.yml")
