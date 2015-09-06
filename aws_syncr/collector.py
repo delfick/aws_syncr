@@ -106,30 +106,13 @@ class Collector(Collector):
         """Hook to do any extra configuration collection or converter registration"""
         aws_syncr_spec = AwsSyncrSpec()
 
-        def aws_syncr_converter(p, v):
-            log.info("Converting %s", p)
-            meta = Meta(p.configuration, [("aws_syncr", "")])
-            configuration.converters.started(p)
-            return aws_syncr_spec.aws_syncr_spec.normalise(meta, v)
-        configuration.add_converter(Converter(convert=aws_syncr_converter, convert_path=["aws_syncr"]))
+        for thing in ('aws_syncr', 'accounts', 'roles', 'templates'):
+            def make_converter(thing):
+                def converter(p, v):
+                    log.info("Converting %s", p)
+                    meta = Meta(p.configuration, [(thing, "")])
+                    configuration.converters.started(p)
+                    return getattr(aws_syncr_spec, "{0}_spec".format(thing)).normalise(meta, v)
+                return converter
+            configuration.add_converter(Converter(convert=make_converter(thing), convert_path=[thing]))
 
-        def accounts_converter(p, v):
-            log.info("Converting %s", p)
-            meta = Meta(p.configuration, [("accounts", "")])
-            configuration.converters.started(p)
-            return aws_syncr_spec.accounts_spec.normalise(meta, v)
-        configuration.add_converter(Converter(convert=accounts_converter, convert_path=["accounts"]))
-
-        def roles_converter(p, v):
-            log.info("Converting %s", p)
-            meta = Meta(p.configuration, [("roles", "")])
-            configuration.converters.started(p)
-            return aws_syncr_spec.roles_spec.normalise(meta, v)
-        configuration.add_converter(Converter(convert=roles_converter, convert_path=["roles"]))
-
-        def templates_converter(p, v):
-            log.info("Converting %s", p)
-            meta = Meta(p.configuration, [("templates", "")])
-            configuration.converters.started(p)
-            return aws_syncr_spec.templates_spec.normalise(meta, v)
-        configuration.add_converter(Converter(convert=templates_converter, convert_path=["templates"]))
