@@ -18,3 +18,6 @@ class Syncer(object):
         if role.make_instance_profile:
             self.amazon.iam.make_instance_profile(role.name)
 
+    def sync_bucket(self, bucket):
+        """Make sure this bucket exists and has only attributes we want it to have"""
+        pass

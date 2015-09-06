@@ -64,6 +64,34 @@ class statement_spec(sb.Spec):
 
         return self.final_kls(**kwargs)
 
+class resource_policy_dict(sb.Spec):
+    def setup(self, effect=NotSpecified):
+        self.effect = effect
+
+    def normalise(self, meta, val):
+        val = sb.dictionary_spec().normalise(meta, val)
+        if self.effect is not NotSpecified:
+            if val.get('effect', self.effect) != self.effect or val.get('Effect', self.effect) != self.effect:
+                raise BadOption("Defaulted effect is being overridden", default=self.effect, overriden=val.get("Effect", val.get("effect")), meta=meta)
+
+            if val.get('effect', NotSpecified) is NotSpecified and val.get("Effect", NotSpecified) is NotSpecified:
+                val['Effect'] = self.effect
+        return val
+
+class permission_dict(resource_policy_dict):
+    pass
+
+class trust_dict(sb.Spec):
+    def setup(self, principal):
+        self.principal = principal
+
+    def normalise(self, meta, val):
+        val = sb.dictionary_spec().normalise(meta, val)
+        if self.principal in val:
+            raise BadOption("Please don't manually specify principal or notprincipal in a trust statement", meta=meta)
+        val[self.principal] = val
+        return val
+
 class permission_statement_spec(statement_spec):
     args = lambda s, self_type, self_name: {
           'sid': sb.string_spec()
@@ -82,7 +110,7 @@ class permission_statement_spec(statement_spec):
     invalid_args = ['principal', ('not', 'principal')]
     final_kls = lambda s, *args, **kwargs: PermissionStatement(*args, **kwargs)
 
-class trust_statement_spec(statement_spec):
+class resource_policy_statement_spec(statement_spec):
     args = lambda s, self_type, self_name: {
           'sid': sb.string_spec()
 
@@ -94,20 +122,16 @@ class trust_statement_spec(statement_spec):
         , 'resource': resource_spec(self_type, self_name)
         , ('not', 'resource'): resource_spec(self_type, self_name)
 
-        , 'principal': principal_spec(self_type, self_name)
-        , ('not', 'principal'): principal_spec(self_type, self_name)
+        , 'principal': sb.listof(principal_spec(self_type, self_name))
+        , ('not', 'principal'): sb.listof(principal_spec(self_type, self_name))
 
         , 'condition': sb.dictionary_spec()
         , ('not', 'condition'): sb.dictionary_spec()
         }
-    final_kls = lambda s, *args, **kwargs: TrustStatement(*args, **kwargs)
+    final_kls = lambda s, *args, **kwargs: ResourcePolicyStatement(*args, **kwargs)
 
-    def normalise(self, meta, val):
-        val = super(trust_statement_spec, self).normalise(meta, val)
-        have_federated = val.principal is not NotSpecified and val.principal.get("Federated") or val.notprincipal is not NotSpecified and val.notprincipal.get("Federated")
-        if have_federated and val.action is NotSpecified:
-            val.action = "sts:AssumeRoleWithSAML"
-        return val
+class trust_statement_spec(resource_policy_statement_spec):
+    final_kls = lambda s, *args, **kwargs: TrustStatement(*args, **kwargs)
 
 class principal_service_spec(sb.Spec):
     def normalise(self, meta, val):
@@ -178,8 +202,29 @@ class PermissionStatement(dictobj):
 
         return statement
 
-class TrustStatement(dictobj):
+class ResourcePolicyStatement(dictobj):
     fields = ['sid', 'effect', 'action', 'notaction', 'resource', 'notresource', 'principal', 'notprincipal', 'condition', 'notcondition']
+
+    def merge_principal(self, val, key):
+        if len(val[key]) == 1:
+            val[key] = val[key][0]
+            return
+
+        result = {}
+        for item in val[key]:
+            for service, lst in item.items():
+                if not isinstance(lst, list):
+                    lst = [lst]
+                if service in result:
+                    result[service].extend(lst)
+                else:
+                    result[service] = lst
+
+        for service, lst in list(result.items()):
+            if len(lst) == 1:
+                result[service] = lst[0]
+
+        return result
 
     @property
     def statement(self):
@@ -194,19 +239,35 @@ class TrustStatement(dictobj):
             if val is NotSpecified:
                 del statement[key]
 
-        if "Action" not in statement and 'NotAction' not in statement:
-            statement["Action"] = "sts:AssumeRole"
-
         if "Sid" not in statement:
             statement["Sid"] = ""
 
         if "Effect" not in statement:
             statement["Effect"] = "Allow"
 
+        for principal in ("Principal", "NotPrincipal"):
+            if principal in statement:
+                self.merge_principal(statement, principal)
+
         for principal in ("principal", "notprincipal", "Principal", "NotPrincipal"):
             for key, v in list(statement.get(principal, {}).items()):
                 if not v:
                     del statement[principal][key]
+
+        return statement
+
+class TrustStatement(ResourcePolicyStatement):
+
+    @property
+    def statement(self):
+        statement = super(TrustStatement, self).statement
+
+        if "Action" not in statement and 'NotAction' not in statement:
+            have_federated = "Principal" in statement and "Federated" in statement["Principal"] or "NotPrincipal" in statement and "Federated" in statement["NotPrincipal"]
+            if have_federated:
+                statement["Action"] = "sts:AssumeRoleWithSAML"
+            else:
+                statement["Action"] = "sts:AssumeRole"
 
         return statement
 
