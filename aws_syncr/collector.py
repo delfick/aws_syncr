@@ -53,7 +53,8 @@ class Collector(Collector):
                     common_files = [filename for filename in common_files if filename != actual_file]
 
         with tempfile.NamedTemporaryFile() as fle:
-            json.dump({"includes": common_files + environment_files}, fle)
+            contents = json.dumps({"includes": common_files + environment_files})
+            fle.write(contents.encode('utf-8'))
             fle.flush()
             cli_args['aws_syncr']['environment'] = os.path.split(environment)[-1]
             super(Collector, self).prepare(fle.name, cli_args)
