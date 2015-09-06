@@ -49,7 +49,7 @@ class Differ(object):
         difference = diff(first, second, fromfile="current", tofile="new").stringify()
         if difference:
             lines = difference.split('\n')
-            if not first or not second or any(line.strip().startswith("@@") and line.strip().endswith("@@") for line in lines):
+            if not first or not second or first != second:
                 for line in lines:
                     yield line
 

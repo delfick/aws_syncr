@@ -253,6 +253,13 @@ class ResourcePolicyStatement(dictobj):
                 if not v:
                     del statement[principal][key]
 
+        for thing in ("Action", "NotAction", "Resource", "NotResource", "Principal", "NotPrincipal"):
+            if thing in statement and isinstance(statement[thing], list):
+                if len(statement[thing]) == 1:
+                    statement[thing] = statement[thing][0]
+                else:
+                    statement[thing] = sorted(statement[thing])
+
         return statement
 
 class TrustStatement(ResourcePolicyStatement):

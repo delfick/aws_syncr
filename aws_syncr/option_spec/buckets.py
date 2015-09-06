@@ -1,12 +1,14 @@
 from aws_syncr.option_spec.statements import resource_policy_statement_spec, resource_policy_dict
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.documents import Document
+from aws_syncr.errors import BadTemplate
 
 from input_algorithms.spec_base import NotSpecified
 from input_algorithms import spec_base as sb
 from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
 
+from option_merge import MergedOptions
 import six
 
 class buckets_spec(Spec):
@@ -19,7 +21,7 @@ class buckets_spec(Spec):
 
             val = MergedOptions.using(meta.everything['templates'][template], val)
 
-        formatted_string = sb.formatted(sb.string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
+        formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
         bucket_name = meta.key_names()['_key_name_0']
 
         original_permission = sb.listof(resource_policy_dict()).normalise(meta.at("permission"), val.get("permission", NotSpecified))

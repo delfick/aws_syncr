@@ -27,7 +27,7 @@ class AmazonMixin:
         try:
             yield
         except ClientError as error:
-            if error.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
+            if "ResponseMetadata" in error.response and error.response["ResponseMetadata"]["HTTPStatusCode"] == 404 or error.response["Error"]["Code"] == "404":
                 pass
             else:
                 raise

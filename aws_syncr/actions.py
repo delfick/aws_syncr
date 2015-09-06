@@ -14,7 +14,6 @@ def an_action(func):
 def sync(collector):
     """Sync an environment"""
     syncr = Syncer(collector.configuration['aws_syncr'], collector.configuration['amazon'])
-    changes = False
 
     # Convert everything before we try and sync anything
     converted = {}
@@ -25,8 +24,8 @@ def sync(collector):
     # Do the sync
     for singular, items in converted.values():
         for name, item in items:
-            changes = changes or getattr(syncr, "sync_{0}".format(singular))(item)
+            getattr(syncr, "sync_{0}".format(singular))(item)
 
-    if not changes:
+    if not syncr.amazon.changes:
         log.info("No changes were made!!")
 
