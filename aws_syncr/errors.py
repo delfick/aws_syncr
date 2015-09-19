@@ -43,3 +43,6 @@ class BadAmazon(AwsSyncrError):
 
 class BadTemplate(AwsSyncrError):
     desc = "Bad template"
+
+class InvalidGrant(AwsSyncrError):
+    desc = "Bad Grant"

@@ -4,6 +4,7 @@ Here we define the yaml specification for aws_syncr options
 The specifications are responsible for sanitation, validation and normalisation.
 """
 
+from aws_syncr.option_spec.encryption_keys import encryption_keys_spec, EncryptionKeys
 from aws_syncr.option_spec.buckets import buckets_spec, Buckets
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.roles import role_spec, Roles
@@ -72,6 +73,11 @@ class AwsSyncrSpec(object):
     def buckets_spec(self):
         """Spec for buckets"""
         return container_spec(Buckets, dictof(string_spec(), buckets_spec()))
+
+    @property
+    def encryption_keys_spec(self):
+        """Spec for kms keys"""
+        return container_spec(EncryptionKeys, dictof(string_spec(), encryption_keys_spec()))
 
     @property
     def templates_spec(self):

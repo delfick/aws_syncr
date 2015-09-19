@@ -2,6 +2,7 @@ from aws_syncr.errors import BadCredentials, AwsSyncrError
 from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.amazon.iam import Iam
 from aws_syncr.amazon.s3 import S3
+from aws_syncr.amazon.kms import Kms
 import boto3
 
 import logging
@@ -34,6 +35,7 @@ class Amazon(AmazonMixin, object):
 
     s3 = ValidatingMemoizedProperty(S3, "_s3")
     iam = ValidatingMemoizedProperty(Iam, "_iam")
+    kms = ValidatingMemoizedProperty(Kms, "_kms")
 
     @property
     def all_roles(self):

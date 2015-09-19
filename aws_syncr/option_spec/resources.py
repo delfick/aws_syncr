@@ -130,7 +130,8 @@ class sns_specs(sb.Spec):
                 yield "arn:aws:sns:{0}:{1}:{2}".format(location, account_id, key_id)
 
 class resource_spec(sb.Spec):
-    def setup(self, self_type, self_name):
+    def setup(self, self_type, self_name, only=None):
+        self.only = only
         self.self_type = self_type
         self.self_name = self_name
 
@@ -148,6 +149,9 @@ class resource_spec(sb.Spec):
                 types = (("iam", iam_spec), ("kms", kms_spec), ("sns", sns_spec), ("s3", s3_spec))
                 for typ, spec in types:
                     if typ in item:
+                        if self.only and typ not in self.only:
+                            raise BadPolicy("Sorry, don't support this resource type here", wanted=typ, available=self.only, meta=meta)
+
                         for found in spec.normalise(meta.indexed_at(index).at(typ), item[typ]):
                             result.append(found)
         return sorted(result)

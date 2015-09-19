@@ -106,7 +106,7 @@ class Collector(Collector):
         """Hook to do any extra configuration collection or converter registration"""
         aws_syncr_spec = AwsSyncrSpec()
 
-        for thing in ('aws_syncr', 'accounts', 'roles', 'templates', 'buckets'):
+        for thing in ('aws_syncr', 'accounts', 'roles', 'templates', 'buckets', 'encryption_keys'):
             def make_converter(thing):
                 def converter(p, v):
                     log.info("Converting %s", p)

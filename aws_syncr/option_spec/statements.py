@@ -130,6 +130,16 @@ class resource_policy_statement_spec(statement_spec):
         }
     final_kls = lambda s, *args, **kwargs: ResourcePolicyStatement(*args, **kwargs)
 
+class grant_statement_spec(statement_spec):
+    args = lambda s, self_type, self_name: {
+          'grantee': sb.required(resource_spec(self_type, self_name, only="iam"))
+        , 'retiree': resource_spec(self_type, self_name, only="iam")
+        , 'operations': sb.required(sb.listof(sb.string_spec()))
+        , 'constraints': sb.any_spec()
+        , 'grant_tokens': sb.any_spec()
+        }
+    final_kls = lambda s, *args, **kwargs: GrantStatement(*args, **kwargs)
+
 class trust_statement_spec(resource_policy_statement_spec):
     final_kls = lambda s, *args, **kwargs: TrustStatement(*args, **kwargs)
 
@@ -253,7 +263,7 @@ class ResourcePolicyStatement(dictobj):
                 if not v:
                     del statement[principal][key]
 
-        for thing in ("Action", "NotAction", "Resource", "NotResource", "Principal", "NotPrincipal"):
+        for thing in ("Action", "NotAction", "Resource", "NotResource"):
             if thing in statement and isinstance(statement[thing], list):
                 if len(statement[thing]) == 1:
                     statement[thing] = statement[thing][0]
@@ -274,6 +284,30 @@ class TrustStatement(ResourcePolicyStatement):
                 statement["Action"] = "sts:AssumeRoleWithSAML"
             else:
                 statement["Action"] = "sts:AssumeRole"
+
+        return statement
+
+class GrantStatement(dictobj):
+    fields = ['grantee', 'retiree', 'operations', 'grant_tokens', 'constraints']
+
+    @property
+    def statement(self):
+        statement = {
+              "GranteePrincipal": self.grantee, "RetireePrincipal": self.retiree
+            , "Operations": sorted(self.operations), "GrantTokens": self.grant_tokens
+            , "Constraints": self.constraints
+            }
+
+        for key, val in list(statement.items()):
+            if val is NotSpecified:
+                del statement[key]
+
+        for thing in ("GranteePrincipal", "RetireePrincipal"):
+            if thing in statement and isinstance(statement[thing], list):
+                if len(statement[thing]) == 1:
+                    statement[thing] = statement[thing][0]
+                else:
+                    statement[thing] = sorted(statement[thing])
 
         return statement
 

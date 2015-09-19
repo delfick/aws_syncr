@@ -31,3 +31,11 @@ class Syncer(object):
         else:
             self.amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags)
 
+    def sync_encryption_key(self, key):
+        """Make sure this key is as defined"""
+        key_info = self.amazon.kms.key_info(key.name, key.location)
+        if not key_info:
+            self.amazon.kms.create_key(key.name, key.description, key.location, key.admin_users, key.grant, key.policy.document)
+        else:
+            self.amazon.kms.modify_key(key_info, key.name, key.description, key.location, key.admin_users, key.grant, key.policy.document)
+
