@@ -65,21 +65,6 @@ class AwsSyncrSpec(object):
         return dictof(string_spec(), formatted_account_id)
 
     @property
-    def roles_spec(self):
-        """Spec for roles"""
-        return container_spec(Roles, dictof(string_spec(), role_spec()))
-
-    @property
-    def buckets_spec(self):
-        """Spec for buckets"""
-        return container_spec(Buckets, dictof(string_spec(), buckets_spec()))
-
-    @property
-    def encryption_keys_spec(self):
-        """Spec for kms keys"""
-        return container_spec(EncryptionKeys, dictof(string_spec(), encryption_keys_spec()))
-
-    @property
     def templates_spec(self):
         """Spec for templates"""
         return dictof(string_spec(), dictionary_spec())

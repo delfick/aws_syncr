@@ -1,5 +1,3 @@
-from aws_syncr.operations.syncer import Syncer
-
 import logging
 
 log = logging.getLogger("aws_syncr.actions")
@@ -13,19 +11,22 @@ def an_action(func):
 @an_action
 def sync(collector):
     """Sync an environment"""
-    syncr = Syncer(collector.configuration['aws_syncr'], collector.configuration['amazon'])
+    amazon = collector.configuration['amazon']
+    aws_syncr = collector.configuration['aws_syncr']
 
     # Convert everything before we try and sync anything
+    log.info("Converting configuration")
     converted = {}
-    for thing, singular in (("roles", "role"), ("buckets", "bucket"), ("encryption_keys", "encryption_key")):
+    for thing in collector.configuration["__registered__"]:
         if thing in collector.configuration:
-            converted[thing] = (singular, getattr(collector.configuration[thing], thing).items())
+            converted[thing] = collector.configuration[thing]
 
     # Do the sync
-    for singular, items in converted.values():
-        for name, item in items:
-            getattr(syncr, "sync_{0}".format(singular))(item)
+    for typ, thing in converted.items():
+        log.info("Syncing {0}".format(typ))
+        for name, item in thing.items.items():
+            thing.sync_one(aws_syncr, amazon, item)
 
-    if not syncr.amazon.changes:
+    if not amazon.changes:
         log.info("No changes were made!!")
 

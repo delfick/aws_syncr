@@ -44,7 +44,22 @@ class role_spec(object):
             ).normalise(meta, val)
 
 class Roles(dictobj):
-    fields = ['roles']
+    fields = ['items']
+
+    def sync_one(self, aws_syncr, amazon, role):
+        """Make sure this role exists and has only what policies we want it to have"""
+        trust_document = role.trust.document
+        permission_document = role.permission.document
+        policy_name = "syncr_policy_{0}".format(role.name.replace('/', '__'))
+
+        role_info = amazon.iam.role_info(role.name)
+        if not role_info:
+            amazon.iam.create_role(role.name, trust_document, policies={policy_name: permission_document})
+        else:
+            amazon.iam.modify_role(role_info, role.name, trust_document, policies={policy_name: permission_document})
+
+        if role.make_instance_profile:
+            amazon.iam.make_instance_profile(role.name)
 
 class Role(dictobj):
     fields = {
@@ -55,4 +70,7 @@ class Role(dictobj):
       , "trust": "The trust document"
       , "permission": "Combination of allow_permission and deny_permission"
       }
+
+def __register__():
+    return {"roles": sb.container_spec(Roles, sb.dictof(sb.string_spec(), role_spec()))}
 

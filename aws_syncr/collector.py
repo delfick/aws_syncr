@@ -2,7 +2,7 @@
 Collects then parses configuration files and verifies that they are valid.
 """
 
-from aws_syncr.errors import BadConfiguration, BadYaml, BadOption
+from aws_syncr.errors import BadConfiguration, BadYaml, BadOption, BadImport
 from aws_syncr.option_spec.aws_syncr_specs import AwsSyncrSpec
 from aws_syncr.amazon import Amazon
 
@@ -13,10 +13,12 @@ from option_merge.collector import Collector
 from option_merge import MergedOptions
 from option_merge import Converter
 
+import pkg_resources
 import tempfile
 import logging
 import yaml
 import json
+import imp
 import os
 
 log = logging.getLogger("aws_syncr.collector")
@@ -105,14 +107,36 @@ class Collector(Collector):
     def extra_configuration_collection(self, configuration):
         """Hook to do any extra configuration collection or converter registration"""
         aws_syncr_spec = AwsSyncrSpec()
+        registered = {}
+        directory = pkg_resources.resource_filename("aws_syncr", "option_spec")
 
-        for thing in ('aws_syncr', 'accounts', 'roles', 'templates', 'buckets', 'encryption_keys'):
+        for location in sorted(os.listdir(directory)):
+            import_name = os.path.splitext(location)[0]
+            if import_name != '__pycache__':
+                try:
+                    args = imp.find_module(import_name, [directory])
+                except ImportError as error:
+                    raise BadImport(directory=directory, importing=import_name, error=error)
+
+                try:
+                    module = imp.load_module(import_name, *args)
+                except SyntaxError as error:
+                    raise BadImport(directory=self.directory, importing=self.import_name, error=error)
+
+                if hasattr(module, "__register__"):
+                    registered.update(module.__register__())
+
+        configuration['__registered__'] = registered
+        for thing in ['aws_syncr', 'accounts', 'templates'] + list(registered.keys()):
             def make_converter(thing):
                 def converter(p, v):
                     log.info("Converting %s", p)
                     meta = Meta(p.configuration, [(thing, "")])
                     configuration.converters.started(p)
-                    return getattr(aws_syncr_spec, "{0}_spec".format(thing)).normalise(meta, v)
+                    if thing in registered:
+                        return registered[thing].normalise(meta, v)
+                    else:
+                        return getattr(aws_syncr_spec, "{0}_spec".format(thing)).normalise(meta, v)
                 return converter
             configuration.add_converter(Converter(convert=make_converter(thing), convert_path=[thing]))
 

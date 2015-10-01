@@ -1,5 +1,5 @@
 from aws_syncr.amazon.common import AmazonMixin
-from aws_syncr.operations.differ import Differ
+from aws_syncr.differ import Differ
 
 from botocore.exceptions import ClientError
 import boto3

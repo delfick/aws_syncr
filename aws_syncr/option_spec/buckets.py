@@ -37,7 +37,20 @@ class buckets_spec(Spec):
             ).normalise(meta, val)
 
 class Buckets(dictobj):
-    fields = ['buckets']
+    fields = ['items']
+
+    def sync_one(self, aws_syncr, amazon, bucket):
+        """Make sure this bucket exists and has only attributes we want it to have"""
+        if bucket.permission.statements:
+            permission_document = bucket.permission.document
+        else:
+            permission_document = ""
+
+        bucket_info = amazon.s3.bucket_info(bucket.name)
+        if not bucket_info:
+            amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags)
+        else:
+            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags)
 
 class Bucket(dictobj):
     fields = {
@@ -46,4 +59,7 @@ class Bucket(dictobj):
         , 'permission': "The permission statements to attach to the bucket"
         , 'tags': "The tags to associate with the bucket"
         }
+
+def __register__():
+    return {"buckets": sb.container_spec(Buckets, sb.dictof(sb.string_spec(), buckets_spec()))}
 

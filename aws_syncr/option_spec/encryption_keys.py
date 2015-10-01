@@ -39,7 +39,15 @@ class encryption_keys_spec(Spec):
         return key
 
 class EncryptionKeys(dictobj):
-    fields = ["encryption_keys"]
+    fields = ["items"]
+
+    def sync_one(self, aws_syncr, amazon, key):
+        """Make sure this key is as defined"""
+        key_info = amazon.kms.key_info(key.name, key.location)
+        if not key_info:
+            amazon.kms.create_key(key.name, key.description, key.location, key.admin_users, key.grant, key.policy.document)
+        else:
+            amazon.kms.modify_key(key_info, key.name, key.description, key.location, key.admin_users, key.grant, key.policy.document)
 
 class EncryptionKey(dictobj):
     fields = {
@@ -49,4 +57,7 @@ class EncryptionKey(dictobj):
         , 'admin_users': "The admin_users for this key"
         , 'grant': "The grants given to the key"
         }
+
+def __register__():
+    return {"encryption_keys": sb.container_spec(EncryptionKeys, sb.dictof(sb.string_spec(), encryption_keys_spec()))}
 

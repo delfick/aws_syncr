@@ -46,3 +46,7 @@ class BadTemplate(AwsSyncrError):
 
 class InvalidGrant(AwsSyncrError):
     desc = "Bad Grant"
+
+class BadImport(AwsSyncrError):
+    desc = "Failed to import"
+
