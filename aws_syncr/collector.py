@@ -43,19 +43,12 @@ class Collector(Collector):
         if environment not in available_environments:
             raise BadOption("Specified environment doesn't exist", available=available_environments, wanted=environment)
 
-        common_files = [os.path.abspath(path) for path in available if os.path.isfile(path) and path.endswith("yml") or path.endswith("yaml")]
         environment_files = []
         for root, dirs, files in os.walk(os.path.join(configuration_folder, environment)):
             environment_files.extend(os.path.join(root, filename) for filename in files)
 
-        for filename in environment_files:
-            if os.path.islink(filename):
-                actual_file = os.path.abspath(os.path.join(os.path.dirname(filename), os.readlink(filename)))
-                if os.path.islink(filename) and actual_file in common_files:
-                    common_files = [filename for filename in common_files if filename != actual_file]
-
         with tempfile.NamedTemporaryFile() as fle:
-            contents = json.dumps({"includes": common_files + environment_files})
+            contents = json.dumps({"includes": environment_files})
             fle.write(contents.encode('utf-8'))
             fle.flush()
             cli_args['aws_syncr']['environment'] = os.path.split(environment)[-1]
