@@ -41,7 +41,7 @@ And then you run::
 For example, let's say you have a ``dev`` environment and a ``stg`` environment::
 
     accounts.yaml
-        
+
         ---
 
         accounts:
@@ -58,14 +58,14 @@ For example, let's say you have a ``dev`` environment and a ``stg`` environment:
 
     dev/
         roles.yaml - symlink to ../roles.yaml
-    
+
     stg/
         roles.yaml - symlink to ../roles.yaml
 
 Then from that folder::
 
+    $ aws_syncr ./dev --dry-run
     $ aws_syncr ./dev
-    $ aws_syncr ./stg
 
 Tests
 -----
