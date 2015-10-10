@@ -1,9 +1,12 @@
-.. _iam_role
+.. _iam_role:
 
 IAM Roles
 =========
 
-You can create iam roles under the ``roles`` section of your configuration.
+IAM is amazon's access management service. You use this service to create
+user accounts and roles. Aws_syncr currently only supports creating and
+modifying roles. These can be created under the ``roles`` section of your
+configuration.
 
 .. code-block:: yaml
 
