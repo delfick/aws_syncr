@@ -28,14 +28,10 @@ class encryption_keys_spec(Spec):
             , location = sb.required(formatted_string)
             , description = formatted_string
             , grant = sb.listof(grant_statement_spec('key', key_name))
-            , admin_users = sb.listof(sb.any_spec())
             ).normalise(meta, val)
 
         statements = [{"principal": {"iam": "root"}, "action": "kms:*", "resource": "*", "Sid": ""}]
-        for admin_user in key.admin_users:
-            statements.append({"principal": admin_user, "action": "kms:*", "resource": { "kms": "__self__" }, "Sid": ""})
-
-        key.policy = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('key', key_name))).normalise(meta.at("admin_users"), statements)
+        key.policy = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('key', key_name))).normalise(meta.at("__statement__"), statements)
         return key
 
 class EncryptionKeys(dictobj):
@@ -45,16 +41,15 @@ class EncryptionKeys(dictobj):
         """Make sure this key is as defined"""
         key_info = amazon.kms.key_info(key.name, key.location)
         if not key_info:
-            amazon.kms.create_key(key.name, key.description, key.location, key.admin_users, key.grant, key.policy.document)
+            amazon.kms.create_key(key.name, key.description, key.location, key.grant, key.policy.document)
         else:
-            amazon.kms.modify_key(key_info, key.name, key.description, key.location, key.admin_users, key.grant, key.policy.document)
+            amazon.kms.modify_key(key_info, key.name, key.description, key.location, key.grant, key.policy.document)
 
 class EncryptionKey(dictobj):
     fields = {
           'name': "Name of the key"
         , 'location': "The region the key exists in"
         , 'description': "Description of the key"
-        , 'admin_users': "The admin_users for this key"
         , 'grant': "The grants given to the key"
         }
 

@@ -36,7 +36,7 @@ class Kms(AmazonMixin, object):
 
         return info
 
-    def create_key(self, name, description, location, admin_users, grant, policy):
+    def create_key(self, name, description, location, grant, policy):
         client = self.get_client(location)
         with self.catch_boto_400("Couldn't create key", "{0} Policy".format(name), policy, alias=name):
             for _ in self.change("+", "kms_key", alias=name, document=policy):
@@ -47,7 +47,7 @@ class Kms(AmazonMixin, object):
 
         self.handle_grants(client, [], name, grant)
 
-    def modify_key(self, key_info, name, description, location, admin_users, grant, policy):
+    def modify_key(self, key_info, name, description, location, grant, policy):
         client = self.get_client(location)
         if key_info["Description"] != description:
             with self.catch_boto_400("Couldn't change the description", alias=name):
