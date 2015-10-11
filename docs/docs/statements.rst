@@ -64,11 +64,17 @@ A list of ``<resource>``
 ``<iam_specifier>``
    See below, it specifies an iam resource
 
+``<kms_specifier>``
+   See below, it specifies a kms resource
+
 ``{"s3": <s3_specifier>}``
    "arn:aws:s3:::<s3_specifier>
 
 ``{"s3": [<s3_specifier>, <s3_specifier>, ...]}``
    ["arn:aws:s3:::<s3_specifier>", "arn:aws:s3:::<s3_specifier>", ...]
+
+``<arn_specifier>``
+   See below, it specifies a generic arn
 
 Where ``<iam_specifer>`` can be:
 
@@ -80,6 +86,16 @@ Where ``<iam_specifer>`` can be:
 
    Where account is retrieved from our accounts dictionary from accounts.yaml
 
+Where ``<kms_specifier>`` can be:
+
+``{"kms": "__self__"}``
+    arn for the kms this policy is being given to
+
+``{"kms": "<alias>", "location":<location>, "account":<account>}``
+    "arn:aws:kms::<account>:alias/<alias>"
+
+    Where account is retrieved from our accounts dictionary from accounts.yaml
+
 Where ``<s3_specifier>`` can be:
 
 ``__self__``
@@ -90,6 +106,14 @@ Where ``<s3_specifier>`` can be:
 
 ``<name>/<path>``
   Name of a bucket with some path
+
+Where ``<arn_specifier>`` is
+
+``{"arn":<service>, "location":<location>, "account":<account>, "identity":<identity>}``
+    "arn:aws:<service>:<location>:<account>:<identity>"
+
+.. note:: For the special specifiers, account and identity can be a list of
+  values.
 
 Grant statements
 ----------------

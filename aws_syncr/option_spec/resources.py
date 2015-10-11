@@ -102,7 +102,7 @@ class kms_specs(sb.Spec):
                 else:
                     yield "arn:aws:kms:{0}:{1}:key/{2}".format(location, account_id, key_id)
 
-class sns_specs(sb.Spec):
+class arn_specs(sb.Spec):
     def setup(self, resource, self_type, self_name):
         self.resource = resource
         self.self_type = self_type
@@ -110,10 +110,13 @@ class sns_specs(sb.Spec):
 
     def normalise(self, meta, val):
         accounts = meta.everything["accounts"]
-        default_location = meta.everything["aws_syncr"].location
+        default_location = ""
         default_account_id = accounts[meta.everything["aws_syncr"].environment]
 
-        for key_id in sb.listof(sb.string_spec()).normalise(meta, val):
+        if "identity" not in self.resource:
+            raise BadPolicy("Generic arn specified without specifying 'identity'", meta=meta)
+
+        for identity in sb.listof(sb.string_spec()).normalise(meta.at("identity"), self.resource.get("identity")):
             location = sb.defaulted(sb.string_spec(), default_location).normalise(meta.at("location"), self.resource.get("location"))
             provided_accounts = sb.listof(sb.string_spec()).normalise(meta.at("account"), self.resource.get("account", ""))
 
@@ -125,7 +128,7 @@ class sns_specs(sb.Spec):
                     else:
                         account_id = accounts[provided_account]
 
-                yield "arn:aws:sns:{0}:{1}:{2}".format(location, account_id, key_id)
+                yield "arn:aws:{0}:{1}:{2}:{3}".format(val, location, account_id, identity)
 
 class resource_spec(sb.Spec):
     def setup(self, self_type, self_name, only=None):
@@ -139,12 +142,12 @@ class resource_spec(sb.Spec):
             s3_spec = s3_specs(item, self.self_type, self.self_name)
             iam_spec = iam_specs(item, self.self_type, self.self_name)
             kms_spec = kms_specs(item, self.self_type, self.self_name)
-            sns_spec = sns_specs(item, self.self_type, self.self_name)
+            arn_spec = arn_specs(item, self.self_type, self.self_name)
 
             if isinstance(item, six.string_types):
                 result.append(item)
             else:
-                types = (("iam", iam_spec), ("kms", kms_spec), ("sns", sns_spec), ("s3", s3_spec))
+                types = (("iam", iam_spec), ("kms", kms_spec), ("s3", s3_spec), ("arn", arn_spec))
                 for typ, spec in types:
                     if typ in item:
                         if self.only and typ not in self.only:
