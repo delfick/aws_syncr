@@ -26,11 +26,11 @@ class iam_specs(sb.Spec):
             users = sb.listof(sb.string_spec()).normalise(meta.at("users"), self.resource.get('users', NotSpecified))
             for name in sb.listof(sb.any_spec()).normalise(meta, val):
                 if name == "__self__":
-                    if self.self_type == 'bucket':
-                        raise BadPolicy("Bucket policy has no __self__ iam role", meta=meta)
-
-                    account_id = default_account_id
-                    name = "role/{0}".format(self.self_name)
+                    if self.self_type != 'iam':
+                        raise BadPolicy("No __self__ iam role for this policy", meta=meta)
+                    else:
+                        account_id = default_account_id
+                        name = "role/{0}".format(self.self_name)
 
                 service = "sts" if name.startswith("assumed-role") else "iam"
                 arn = "arn:aws:{0}::{1}:{2}".format(service, account_id, name)
@@ -50,10 +50,8 @@ class s3_specs(sb.Spec):
         bucket_key = val
 
         if val == "__self__":
-            if self.self_type == "role":
-                raise BadPolicy("Role policy has no __self__ bucket", meta=meta)
-            elif self.self_type == "key":
-                raise BadPolicy("Key policy has no __self__ bucket", meta=meta)
+            if self.self_type != "bucket":
+                raise BadPolicy("No __self__ bucket for this policy", meta=meta)
             else:
                 bucket_key = self.self_name
 
