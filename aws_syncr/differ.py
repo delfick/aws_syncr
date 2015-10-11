@@ -1,6 +1,7 @@
 from datadiff import diff
 import logging
 import json
+import six
 
 log = logging.getLogger("aws_syncr.operations.differ")
 
@@ -8,17 +9,21 @@ class Differ(object):
     @classmethod
     def compare_two_documents(kls, doc1, doc2):
         """Compare two documents by converting them into json objects and back to strings and compare"""
-        try:
-            first = json.loads(doc1)
-        except (ValueError, TypeError) as error:
-            log.warning("Failed to convert doc into a json object\terror=%s", error)
-            return
+        first = doc1
+        if isinstance(doc1, six.string_types):
+            try:
+                first = json.loads(doc1)
+            except (ValueError, TypeError) as error:
+                log.warning("Failed to convert doc into a json object\terror=%s", error)
+                return
 
-        try:
-            second = json.loads(doc2)
-        except (ValueError, TypeError) as error:
-            log.warning("Failed to convert doc into a json object\terror=%s", error)
-            return
+        second = doc2
+        if isinstance(doc2, six.string_types):
+            try:
+                second = json.loads(doc2)
+            except (ValueError, TypeError) as error:
+                log.warning("Failed to convert doc into a json object\terror=%s", error)
+                return
 
         # Ordering the principals because the ordering amazon gives me hates me
         def sort_statement(statement):

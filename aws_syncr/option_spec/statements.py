@@ -203,7 +203,7 @@ class PermissionStatement(dictobj):
             if val is NotSpecified:
                 del statement[key]
 
-        for thing in ("Action", "NotAction", "Resource", "NotResource"):
+        for thing in ("Action", "NotAction", "Resource", "NotResource", "Condition", "NotCondition"):
             if thing in statement and isinstance(statement[thing], list):
                 if len(statement[thing]) == 1:
                     statement[thing] = statement[thing][0]
@@ -216,9 +216,12 @@ class ResourcePolicyStatement(dictobj):
     fields = ['sid', 'effect', 'action', 'notaction', 'resource', 'notresource', 'principal', 'notprincipal', 'condition', 'notcondition']
 
     def merge_principal(self, val, key):
-        if len(val[key]) == 1:
+        if len(val[key]) == 1 and isinstance(val[key], list):
             val[key] = val[key][0]
-            return
+            return val[key]
+
+        if not isinstance(val[key], list):
+            val[key] = [val[key]]
 
         result = {}
         for item in val[key]:
@@ -257,13 +260,13 @@ class ResourcePolicyStatement(dictobj):
 
         for principal in ("Principal", "NotPrincipal"):
             if principal in statement:
-                self.merge_principal(statement, principal)
+                statement[principal] = self.merge_principal(statement, principal)
 
             for key, v in list(statement.get(principal, {}).items()):
                 if not v:
                     del statement[principal][key]
 
-        for thing in ("Action", "NotAction", "Resource", "NotResource"):
+        for thing in ("Action", "NotAction", "Resource", "NotResource", "Condition", "NotCondition", "Principal", "NotPrincipal"):
             if thing in statement and isinstance(statement[thing], list):
                 if len(statement[thing]) == 1:
                     statement[thing] = statement[thing][0]
