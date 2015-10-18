@@ -20,6 +20,18 @@ class statement_spec(sb.Spec):
         if not self.args or not self.final_kls:
             raise NotImplementedError("Need to use a subclass of statement_spec that defines args and final_kls")
 
+    def normalise(self, meta, val):
+        self.complain_about_invalid_args(meta, val)
+
+        apply_validators(meta, val, self.validators, chain_value=False)
+        args, spec = self.make_spec()
+        normalised = spec.normalise(meta, val)
+
+        kwargs = self.make_kwargs(args, normalised)
+        self.complain_about_missing_args(meta, kwargs)
+
+        return self.final_kls(**kwargs)
+
     def capitalize(self, arg):
         if type(arg) is tuple:
             capitalized = ''.join(part.capitalize() for part in arg)
@@ -28,12 +40,13 @@ class statement_spec(sb.Spec):
             capitalized = arg.capitalize()
         return arg, capitalized
 
-    def normalise(self, meta, val):
+    def complain_about_invalid_args(self, meta, val):
         for arg in self.invalid_args:
             arg, capitalized = self.capitalize(arg)
             if arg in val or capitalized in val:
                 raise BadOption("Cannot specify arg in this statement", arg=arg, capitalized=capitalized, meta=meta)
 
+    def make_spec(self):
         nsd = lambda spec: sb.defaulted(spec, NotSpecified)
         args = {}
         for arg, spec in self.args(self.self_type, self.self_name).items():
@@ -44,16 +57,18 @@ class statement_spec(sb.Spec):
         for (arg, capitalized), spec in list(args.items()):
             kwargs[arg] = nsd(spec)
             kwargs[capitalized] = sb.any_spec()
-        apply_validators(meta, val, self.validators, chain_value=False)
-        val = sb.set_options(**kwargs).normalise(meta, val)
+        return args, sb.set_options(**kwargs)
 
+    def make_kwargs(self, args, normalised):
         kwargs = {}
         for (arg, capitalized) in args:
-            if val.get(arg, NotSpecified) is not NotSpecified and val.get(capitalized, NotSpecified) is not NotSpecified:
-                raise BadOption("Cannot specify arg as special and capitalized at the same time", arg=arg, special_val=val.get(arg), captialized_val=val.get(capitalized), meta=meta)
+            if normalised.get(arg, NotSpecified) is not NotSpecified and normalised.get(capitalized, NotSpecified) is not NotSpecified:
+                raise BadOption("Cannot specify arg as special and capitalized at the same time", arg=arg, special_val=normalised.get(arg), captialized_val=normalised.get(capitalized), meta=meta)
             else:
-                kwargs[arg] = val[capitalized] if val.get(capitalized, NotSpecified) is not NotSpecified else val[arg]
+                kwargs[arg] = normalised[capitalized] if normalised.get(capitalized, NotSpecified) is not NotSpecified else normalised[arg]
+        return kwargs
 
+    def complain_about_missing_args(self, meta, kwargs):
         missing = []
         for arg in self.required:
             if isinstance(arg, six.string_types):
@@ -64,8 +79,6 @@ class statement_spec(sb.Spec):
 
         if missing:
             raise BadPolicy("Statement is missing required properties", missing=missing, meta=meta)
-
-        return self.final_kls(**kwargs)
 
 class resource_policy_dict(sb.Spec):
     def setup(self, effect=NotSpecified):
