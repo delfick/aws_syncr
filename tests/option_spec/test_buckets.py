@@ -103,7 +103,7 @@ describe TestCase, "Registering buckets":
             self.aws_syncr = AwsSyncrSpec().aws_syncr_spec.normalise(Meta({}, []), {"environment": "dev", "config_folder": config_folder})
 
         self.p1 = {"Effect": "Allow", "Resource": "*", "Action": "s3:*", "Principal": {"AWS": "arn:aws:iam::123456789123:role/hi"}}
-        self.p2 = {"allow": True, "resource": {"s3": "__self__" }, "action": "s3:Get*", "principal": { "iam": "role/blah" }}
+        self.p2 = {"effect": "Allow", "resource": {"s3": "__self__" }, "action": "s3:Get*", "principal": { "iam": "role/blah" }}
         self.p3 = {"resource": { "s3": "blah" }, "action": "s3:Head*", "principal": { "iam": "assumed-role/yeap", "account": ["dev", "stg"]}}
 
         self.p4 = {"resource": { "s3": "blah/path" }, "action": "s3:*", "principal": { "iam": "role", "users": ["bob", "sarah"] }}
@@ -119,7 +119,7 @@ describe TestCase, "Registering buckets":
         result = __register__()["buckets"].normalise(meta, self.spec)
         stuff_permissions = Document([
               {'notresource': NotSpecified, 'resource': '*', 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': 's3:*', 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': {"AWS": 'arn:aws:iam::123456789123:role/hi'}}
-            , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::stuff', 'arn:aws:s3:::stuff/*'], 'notaction': NotSpecified, 'effect': NotSpecified, 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:Get*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:role/blah', 'Federated': [], 'Service': []}]}
+            , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::stuff', 'arn:aws:s3:::stuff/*'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:Get*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:role/blah', 'Federated': [], 'Service': []}]}
             , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah', 'arn:aws:s3:::blah/*'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:Head*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': ['arn:aws:sts::123456789123:assumed-role/yeap', 'arn:aws:sts::445829383783:assumed-role/yeap'], 'Federated': [], 'Service': []}]}
             ])
         blah_permissions = Document([
@@ -188,10 +188,10 @@ describe TestCase, "Registering buckets":
 
         blah_statement = """
           {
-            'Version': '2012-10-17',
-            'Statement': [
-              {'Action': 's3:*', 'Principal': {'AWS': 'arn:aws:iam::123456789123:root'}, 'Resource': ['arn:aws:s3:::blah', 'arn:aws:s3:::blah/*'], 'Effect': 'Deny', 'Sid': ''},
-              {'Action': 's3:*', 'Principal': {'AWS': ['arn:aws:iam::123456789123:role/bob', 'arn:aws:iam::123456789123:role/sarah']}, 'Resource': 'arn:aws:s3:::blah/path', 'Effect': 'Allow', Sid': ''}
+            "Version": "2012-10-17",
+            "Statement": [
+              {"Action": "s3:*", "Principal": {"AWS": "arn:aws:iam::123456789123:root"}, "Resource": ["arn:aws:s3:::blah", "arn:aws:s3:::blah/*"], "Effect": "Deny", "Sid": ""},
+              {"Action": "s3:*", "Principal": {"AWS": ["arn:aws:iam::123456789123:role/bob", "arn:aws:iam::123456789123:role/sarah"]}, "Resource": "arn:aws:s3:::blah/path", "Effect": "Allow", "Sid": ""}
             ]
           }
         """

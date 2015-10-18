@@ -90,27 +90,27 @@ describe TestCase, "iam_specs":
             accounts = ["a1", "a2", "a3"]
             val = "role/yolo"
             resource = {"iam": val}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             with mock.patch.object(spec, "accounts", lambda m: accounts):
                 self.assertEqual(list(spec.normalise(self.meta, val)), ["arn:aws:iam::a1:role/yolo", "arn:aws:iam::a2:role/yolo", "arn:aws:iam::a3:role/yolo"])
 
         it "uses default account":
             val = "role/yolo"
             resource = {"iam": val}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             self.assertEqual(list(spec.normalise(self.meta, val)), ["arn:aws:iam::{0}:role/yolo".format(self.default_account_id)])
 
         it "iterates through users":
             val = "role/yolo"
             resource = {"iam": val, "users": ["bob", "sarah"]}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             self.assertEqual(list(spec.normalise(self.meta, val)), ["arn:aws:iam::{0}:role/yolo/bob".format(self.default_account_id), "arn:aws:iam::{0}:role/yolo/sarah".format(self.default_account_id)])
 
         it "iterates through users and accounts":
             val = "role/yolo"
             accounts = ["a1", "a2", "a3"]
             resource = {"iam": val, "users": ["bob", "sarah"]}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             with mock.patch.object(spec, "accounts", lambda m: accounts):
                 self.assertEqual(list(spec.normalise(self.meta, val)), [
                       "arn:aws:iam::a1:role/yolo/bob", "arn:aws:iam::a1:role/yolo/sarah"
@@ -121,20 +121,20 @@ describe TestCase, "iam_specs":
         it "uses sts instead of iam if assumed-role":
             val = "assumed-role/yolo"
             resource = {"iam": val}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             self.assertEqual(list(spec.normalise(self.meta, val)), ["arn:aws:sts::{0}:assumed-role/yolo".format(self.default_account_id)])
 
         it "allows a list for the val":
             val = ["assumed-role/yolo", "role/everything"]
             resource = {"iam": val}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             self.assertEqual(list(spec.normalise(self.meta, val)), ["arn:aws:sts::{0}:assumed-role/yolo".format(self.default_account_id), "arn:aws:iam::{0}:role/everything".format(self.default_account_id)])
 
         it "expands name, account and users":
             val = ["assumed-role/yolo", "role/everything"]
             accounts = ["a1", "a2", "a3"]
             resource = {"iam": val, "users": ["bob", "sarah"]}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             with mock.patch.object(spec, "accounts", lambda m: accounts):
                 self.assertEqual(list(spec.normalise(self.meta, val)), [
                       "arn:aws:sts::a1:assumed-role/yolo/bob", "arn:aws:sts::a1:assumed-role/yolo/sarah", "arn:aws:iam::a1:role/everything/bob", "arn:aws:iam::a1:role/everything/sarah"
@@ -142,7 +142,7 @@ describe TestCase, "iam_specs":
                     , "arn:aws:sts::a3:assumed-role/yolo/bob", "arn:aws:sts::a3:assumed-role/yolo/sarah", "arn:aws:iam::a3:role/everything/bob", "arn:aws:iam::a3:role/everything/sarah"
                     ])
 
-        it "complains if __self__ is used with a self_type that isn't iam":
+        it "complains if __self__ is used with a self_type that isn't role":
             val = "__self__"
             resource = {"iam": val}
             spec = iam_specs(resource, "bucket", "blah_and_stuff")
@@ -152,14 +152,14 @@ describe TestCase, "iam_specs":
         it "allows __self__ as a name":
             val = "__self__"
             resource = {"iam": val}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             self.assertEqual(list(spec.normalise(self.meta, val)), ["arn:aws:iam::{0}:role/blah".format(self.default_account_id)])
 
         it "doesn't put __self__ in more than once":
             val = ["__self__", "assumed-role/yolo", "role/everything"]
             accounts = ["a1", "a2", "a3"]
             resource = {"iam": val, "users": ["bob", "sarah"]}
-            spec = iam_specs(resource, "iam", "blah")
+            spec = iam_specs(resource, "role", "blah")
             with mock.patch.object(spec, "accounts", lambda m: accounts):
                 self.assertEqual(list(spec.normalise(self.meta, val)), [
                       "arn:aws:sts::a1:assumed-role/yolo/bob", "arn:aws:sts::a1:assumed-role/yolo/sarah", "arn:aws:iam::a1:role/everything/bob", "arn:aws:iam::a1:role/everything/sarah"

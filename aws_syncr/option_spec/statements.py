@@ -1,14 +1,17 @@
 from aws_syncr.option_spec.resources import resource_spec, iam_specs
 from aws_syncr.errors import BadOption, BadPolicy
 
-from input_algorithms.spec_base import NotSpecified
+from input_algorithms.spec_base import NotSpecified, apply_validators
+from input_algorithms import spec_base as sb, validators
 from input_algorithms.dictobj import dictobj
-from input_algorithms import spec_base as sb
+from itertools import chain
+import six
 
 class statement_spec(sb.Spec):
     args = None
     final_kls = None
     required = []
+    validators = []
     invalid_args = []
 
     def setup(self, self_type, self_name):
@@ -17,21 +20,31 @@ class statement_spec(sb.Spec):
         if not self.args or not self.final_kls:
             raise NotImplementedError("Need to use a subclass of statement_spec that defines args and final_kls")
 
+    def capitalize(self, arg):
+        if type(arg) is tuple:
+            capitalized = ''.join(part.capitalize() for part in arg)
+            arg = ''.join(arg)
+        else:
+            capitalized = arg.capitalize()
+        return arg, capitalized
+
     def normalise(self, meta, val):
+        for arg in self.invalid_args:
+            arg, capitalized = self.capitalize(arg)
+            if arg in val or capitalized in val:
+                raise BadOption("Cannot specify arg in this statement", arg=arg, capitalized=capitalized, meta=meta)
+
         nsd = lambda spec: sb.defaulted(spec, NotSpecified)
         args = {}
         for arg, spec in self.args(self.self_type, self.self_name).items():
-            if type(arg) is tuple:
-                capitalized = ''.join(part.capitalize() for part in arg)
-                arg = ''.join(arg)
-            else:
-                capitalized = arg.capitalize()
+            arg, capitalized = self.capitalize(arg)
             args[(arg, capitalized)] = spec
 
         kwargs = {}
         for (arg, capitalized), spec in list(args.items()):
             kwargs[arg] = nsd(spec)
             kwargs[capitalized] = sb.any_spec()
+        apply_validators(meta, val, self.validators, chain_value=False)
         val = sb.set_options(**kwargs).normalise(meta, val)
 
         kwargs = {}
@@ -41,24 +54,14 @@ class statement_spec(sb.Spec):
             else:
                 kwargs[arg] = val[capitalized] if val.get(capitalized, NotSpecified) is not NotSpecified else val[arg]
 
-        for arg in self.invalid_args:
-            if type(arg) is tuple:
-                capitalized = ''.join(part.capitalize() for part in arg)
-                arg = ''.join(arg)
-            else:
-                capitalized = arg.capitalize()
-
-            if arg in val or capitalized in val:
-                raise BadOption("Cannot specify arg in this statement", arg=arg, capitalized=capitalized, meta=meta)
-
         missing = []
-        for thing in self.required:
-            if type(thing) is tuple:
-                if not any(kwargs.get(option, NotSpecified) is not NotSpecified for option in thing):
-                    missing.append(" or ".join(thing))
-            else:
-                if kwargs.get(thing, NotSpecified) is NotSpecified:
-                    missing.append(thing)
+        for arg in self.required:
+            if isinstance(arg, six.string_types):
+                arg = (arg, )
+            available = set(list(chain.from_iterable([self.capitalize(thing) for thing in arg])))
+            if not any(kwargs.get(option, NotSpecified) is not NotSpecified for option in available):
+                missing.append(" or ".join(available))
+
         if missing:
             raise BadPolicy("Statement is missing required properties", missing=missing, meta=meta)
 
@@ -106,7 +109,11 @@ class permission_statement_spec(statement_spec):
         , 'condition': sb.dictionary_spec()
         , ('not', 'condition'): sb.dictionary_spec()
         }
-    required = [('action', 'notaction'), 'effect', ('resource', 'notresource')]
+    validators = [
+          validators.deprecated_key('allow', "Use 'effect: Allow|Deny' instead")
+        , validators.deprecated_key('disallow', "Use 'effect: Allow|Deny' instead")
+        ]
+    required = [('action', ('not', 'action')), 'effect', ('resource', ('not', 'resource'))]
     invalid_args = ['principal', ('not', 'principal')]
     final_kls = lambda s, *args, **kwargs: PermissionStatement(*args, **kwargs)
 
@@ -128,6 +135,10 @@ class resource_policy_statement_spec(statement_spec):
         , 'condition': sb.dictionary_spec()
         , ('not', 'condition'): sb.dictionary_spec()
         }
+    validators = [
+          validators.deprecated_key('allow', "Use 'effect: Allow|Deny' instead")
+        , validators.deprecated_key('disallow', "Use 'effect: Allow|Deny' instead")
+        ]
     final_kls = lambda s, *args, **kwargs: ResourcePolicyStatement(*args, **kwargs)
 
 class grant_statement_spec(statement_spec):

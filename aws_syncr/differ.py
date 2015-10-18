@@ -15,6 +15,7 @@ class Differ(object):
                 first = json.loads(doc1)
             except (ValueError, TypeError) as error:
                 log.warning("Failed to convert doc into a json object\terror=%s", error)
+                yield error.args[0]
                 return
 
         second = doc2
@@ -23,6 +24,7 @@ class Differ(object):
                 second = json.loads(doc2)
             except (ValueError, TypeError) as error:
                 log.warning("Failed to convert doc into a json object\terror=%s", error)
+                yield error.args[0]
                 return
 
         # Ordering the principals because the ordering amazon gives me hates me

@@ -44,7 +44,7 @@ class iam_specs(resource_spec_base):
             users = sb.listof(sb.string_spec()).normalise(meta.at("users"), self.resource.get('users', NotSpecified))
             for name in sb.listof(sb.any_spec()).normalise(meta, val):
                 if name == "__self__":
-                    if self.self_type != 'iam':
+                    if self.self_type != 'role':
                         raise BadPolicy("No __self__ iam role for this policy", meta=meta)
                     else:
                         has_self = True
