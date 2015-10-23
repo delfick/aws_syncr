@@ -17,7 +17,7 @@ class statement_spec(sb.Spec):
     def setup(self, self_type, self_name):
         self.self_type = self_type
         self.self_name = self_name
-        if not self.args or not self.final_kls:
+        if self.args is None or not self.final_kls:
             raise NotImplementedError("Need to use a subclass of statement_spec that defines args and final_kls")
 
     def normalise(self, meta, val):
@@ -27,7 +27,7 @@ class statement_spec(sb.Spec):
         args, spec = self.make_spec()
         normalised = spec.normalise(meta, val)
 
-        kwargs = self.make_kwargs(args, normalised)
+        kwargs = self.make_kwargs(meta, args, normalised)
         self.complain_about_missing_args(meta, kwargs)
 
         return self.final_kls(**kwargs)
@@ -59,11 +59,11 @@ class statement_spec(sb.Spec):
             kwargs[capitalized] = sb.any_spec()
         return args, sb.set_options(**kwargs)
 
-    def make_kwargs(self, args, normalised):
+    def make_kwargs(self, meta, args, normalised):
         kwargs = {}
         for (arg, capitalized) in args:
             if normalised.get(arg, NotSpecified) is not NotSpecified and normalised.get(capitalized, NotSpecified) is not NotSpecified:
-                raise BadOption("Cannot specify arg as special and capitalized at the same time", arg=arg, special_val=normalised.get(arg), captialized_val=normalised.get(capitalized), meta=meta)
+                raise BadOption("Cannot specify arg as special and capitalized at the same time", arg=arg, special_val=normalised.get(arg), capitalized_val=normalised.get(capitalized), meta=meta)
             else:
                 kwargs[arg] = normalised[capitalized] if normalised.get(capitalized, NotSpecified) is not NotSpecified else normalised[arg]
         return kwargs
@@ -73,7 +73,7 @@ class statement_spec(sb.Spec):
         for arg in self.required:
             if isinstance(arg, six.string_types):
                 arg = (arg, )
-            available = set(list(chain.from_iterable([self.capitalize(thing) for thing in arg])))
+            available = sorted(list(set(list(chain.from_iterable([self.capitalize(thing) for thing in arg])))))
             if not any(kwargs.get(option, NotSpecified) is not NotSpecified for option in available):
                 missing.append(" or ".join(available))
 
