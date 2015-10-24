@@ -1,10 +1,15 @@
 # coding: spec
 
-from aws_syncr.option_spec.statements import statement_spec
+from aws_syncr.option_spec.statements import (
+      statement_spec, resource_policy_dict, permission_dict, trust_dict
+    , capitalize
+    )
 from aws_syncr.errors import BadOption, BadPolicy
 
+from noseOfYeti.tokeniser.support import noy_sup_setUp
 from input_algorithms.spec_base import NotSpecified
 from input_algorithms.validators import Validator
+from input_algorithms.errors import BadSpecValue
 from input_algorithms import spec_base as sb
 from input_algorithms.meta import Meta
 from tests.helpers import TestCase
@@ -157,10 +162,10 @@ describe TestCase, "statement_spec":
 
     describe "capitalize":
         it "joins if receives a tuple":
-            self.assertEqual(statement_spec.capitalize(None, ("one", "two")), ("onetwo", "OneTwo"))
+            self.assertEqual(capitalize(("one", "two")), ("onetwo", "OneTwo"))
 
         it "just capitalizes if not a tuple":
-            self.assertEqual(statement_spec.capitalize(None, "onetwo"), ("onetwo", "Onetwo"))
+            self.assertEqual(capitalize("onetwo"), ("onetwo", "Onetwo"))
 
     describe "complain_about_invalid_args":
         it "complains if arg or it's captialized_val is in the val for any invalid_arg":
@@ -178,7 +183,7 @@ describe TestCase, "statement_spec":
                 invalid_args = [invalid_arg]
             instance = sub("random", "random")
 
-            with mock.patch.object(instance, "capitalize", capitalize):
+            with mock.patch("aws_syncr.option_spec.statements.capitalize", capitalize):
                 val.__contains__.return_value = False
                 instance.complain_about_invalid_args(meta, val)
                 assert True, "Expect no error"
@@ -299,4 +304,81 @@ describe TestCase, "statement_spec":
             missing = ["One or ThreeFour or one or threefour", "Two or two"]
             with self.fuzzyAssertRaisesError(BadPolicy, "Statement is missing required properties", missing=missing, meta=meta):
                 sub("random", "random").complain_about_missing_args(meta, kwargs)
+
+describe TestCase, "policy_dict":
+    __only_run_tests_in_children__ = True
+
+    before_each:
+        self.meta = mock.Mock(name="meta", spec=Meta)
+
+    it "takes in effect":
+        effect = mock.Mock(name="effect")
+        instance = self.kls(effect)
+        self.assertIs(instance.effect, effect)
+
+    it "expects a dictionary":
+        with self.fuzzyAssertRaisesError(BadSpecValue, "Expected a dictionary"):
+            self.kls().normalise(self.meta, "")
+
+    it "returns as is if there is no effect":
+        val = {"one": "one"}
+        self.assertIs(self.kls().normalise(self.meta, val), val)
+
+    it "complains if defaulted effect is being overridden":
+        for val in ({"effect": "Deny"}, {"Effect": "Deny"}):
+            spec = self.kls(effect="Allow")
+            with self.fuzzyAssertRaisesError(BadOption, "Defaulted effect is being overridden", default="Allow", overridden="Deny", meta=self.meta):
+                spec.normalise(self.meta, val)
+
+    it "sets Effect if not already set":
+        spec = self.kls(effect="Allow")
+        self.assertEqual(spec.normalise(self.meta, {}), {"Effect": "Allow"})
+        self.assertEqual(spec.normalise(self.meta, {"Effect": "Allow"}), {"Effect": "Allow"})
+        self.assertEqual(spec.normalise(self.meta, {"effect": "Allow"}), {"effect": "Allow"})
+
+    describe "resource_policy_dict":
+        kls = resource_policy_dict
+
+    describe "permission_dict":
+        kls = permission_dict
+
+describe TestCase, "trust_dict":
+    it "takes in a principal":
+        principal = mock.Mock(name="principal")
+        instance = trust_dict(principal)
+        self.assertIs(instance.principal, principal)
+
+    describe "normalise":
+        before_each:
+            self.meta = mock.Mock(name="meta", spec=Meta)
+
+        it "expects a dictionary":
+            with self.fuzzyAssertRaisesError(BadSpecValue, "Expected a dictionary"):
+                trust_dict(principal="principal").normalise(self.meta, "")
+
+        it "complains if the opposite principal type is already set":
+            spec = trust_dict(principal="principal")
+            with self.fuzzyAssertRaisesError(BadPolicy, "Specifying opposite principal type in statement", wanted="principal", got="notprincipal", meta=self.meta):
+                spec.normalise(self.meta, {"notprincipal": "val"})
+
+            with self.fuzzyAssertRaisesError(BadPolicy, "Specifying opposite principal type in statement", wanted="principal", got="notprincipal", meta=self.meta):
+                spec.normalise(self.meta, {"NotPrincipal": "val"})
+
+            spec = trust_dict(principal="notprincipal")
+            with self.fuzzyAssertRaisesError(BadPolicy, "Specifying opposite principal type in statement", wanted="notprincipal", got="principal", meta=self.meta):
+                spec.normalise(self.meta, {"principal": "val"})
+
+            with self.fuzzyAssertRaisesError(BadPolicy, "Specifying opposite principal type in statement", wanted="notprincipal", got="principal", meta=self.meta):
+                spec.normalise(self.meta, {"Principal": "val"})
+
+        it "sets principal if not already set":
+            spec = trust_dict(principal="principal")
+            self.assertEqual(spec.normalise(self.meta, {"principal": "val1"}), {"principal": "val1"})
+            self.assertEqual(spec.normalise(self.meta, {"Principal": "val1"}), {"Principal": "val1"})
+            self.assertEqual(spec.normalise(self.meta, {"one": "two"}), {"principal": {"one": "two"}})
+
+            spec = trust_dict(principal="notprincipal")
+            self.assertEqual(spec.normalise(self.meta, {"notprincipal": "val1"}), {"notprincipal": "val1"})
+            self.assertEqual(spec.normalise(self.meta, {"NotPrincipal": "val1"}), {"NotPrincipal": "val1"})
+            self.assertEqual(spec.normalise(self.meta, {"one": "two"}), {"notprincipal": {"one": "two"}})
 

@@ -7,6 +7,14 @@ from input_algorithms.dictobj import dictobj
 from itertools import chain
 import six
 
+def capitalize(arg):
+    if type(arg) is tuple:
+        capitalized = ''.join(part.capitalize() for part in arg)
+        arg = ''.join(arg)
+    else:
+        capitalized = arg.capitalize()
+    return arg, capitalized
+
 class statement_spec(sb.Spec):
     args = None
     final_kls = None
@@ -32,17 +40,9 @@ class statement_spec(sb.Spec):
 
         return self.final_kls(**kwargs)
 
-    def capitalize(self, arg):
-        if type(arg) is tuple:
-            capitalized = ''.join(part.capitalize() for part in arg)
-            arg = ''.join(arg)
-        else:
-            capitalized = arg.capitalize()
-        return arg, capitalized
-
     def complain_about_invalid_args(self, meta, val):
         for arg in self.invalid_args:
-            arg, capitalized = self.capitalize(arg)
+            arg, capitalized = capitalize(arg)
             if arg in val or capitalized in val:
                 raise BadOption("Cannot specify arg in this statement", arg=arg, capitalized=capitalized, meta=meta)
 
@@ -50,7 +50,7 @@ class statement_spec(sb.Spec):
         nsd = lambda spec: sb.defaulted(spec, NotSpecified)
         args = {}
         for arg, spec in self.args(self.self_type, self.self_name).items():
-            arg, capitalized = self.capitalize(arg)
+            arg, capitalized = capitalize(arg)
             args[(arg, capitalized)] = spec
 
         kwargs = {}
@@ -73,7 +73,7 @@ class statement_spec(sb.Spec):
         for arg in self.required:
             if isinstance(arg, six.string_types):
                 arg = (arg, )
-            available = sorted(list(set(list(chain.from_iterable([self.capitalize(thing) for thing in arg])))))
+            available = sorted(list(set(list(chain.from_iterable([capitalize(thing) for thing in arg])))))
             if not any(kwargs.get(option, NotSpecified) is not NotSpecified for option in available):
                 missing.append(" or ".join(available))
 
@@ -88,7 +88,7 @@ class resource_policy_dict(sb.Spec):
         val = sb.dictionary_spec().normalise(meta, val)
         if self.effect is not NotSpecified:
             if val.get('effect', self.effect) != self.effect or val.get('Effect', self.effect) != self.effect:
-                raise BadOption("Defaulted effect is being overridden", default=self.effect, overriden=val.get("Effect", val.get("effect")), meta=meta)
+                raise BadOption("Defaulted effect is being overridden", default=self.effect, overridden=val.get("Effect", val.get("effect")), meta=meta)
 
             if val.get('effect', NotSpecified) is NotSpecified and val.get("Effect", NotSpecified) is NotSpecified:
                 val['Effect'] = self.effect
@@ -103,9 +103,22 @@ class trust_dict(sb.Spec):
 
     def normalise(self, meta, val):
         val = sb.dictionary_spec().normalise(meta, val)
-        if self.principal in val:
-            raise BadOption("Please don't manually specify principal or notprincipal in a trust statement", meta=meta)
-        val[self.principal] = val
+        if self.principal == "notprincipal":
+            opposite = "principal"
+        else:
+            opposite = ("not", "principal")
+        opposite, cap_opposite = capitalize(opposite)
+        if opposite in val or cap_opposite in val:
+            raise BadPolicy("Specifying opposite principal type in statement", wanted=self.principal, got=opposite, meta=meta)
+
+        capitalized = self.principal
+        if capitalized in ("principal", "Principal"):
+            arg, capitalized = "principal", "Principal"
+        else:
+            arg, capitalized = "notprincipal", "NotPrincipal"
+
+        if arg not in val and capitalized not in val:
+            return {self.principal: val}
         return val
 
 class permission_statement_spec(statement_spec):
