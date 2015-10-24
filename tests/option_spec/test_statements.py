@@ -559,3 +559,190 @@ describe TestCase, "principal_spec":
             with mock.patch("aws_syncr.option_spec.statements.iam_specs", iam_specs):
                 with mock.patch("aws_syncr.option_spec.statements.resource_spec", resource_spec):
                     self.assertEqual(spec.normalise(self.meta, val), {"Federated": ret})
+
+describe TestCase, "PermissionStatement":
+    before_each:
+        self.sid = mock.Mock(name="sid")
+        self.effect = mock.Mock(name="effect")
+        self.action = mock.Mock(name="action")
+        self.notaction = mock.Mock(name="notaction")
+        self.resource = mock.Mock(name="resource")
+        self.notresource = mock.Mock(name="notresource")
+        self.condition = mock.Mock(name="condition")
+        self.notcondition = mock.Mock(name="notcondition")
+        self.statement = PermissionStatement(self.sid, self.effect, self.action, self.notaction, self.resource, self.notresource, self.condition, self.notcondition)
+
+    describe "statement":
+        it "returns statement of all the capitalized fields":
+            self.assertEqual(self.statement.statement, {
+                  "Sid": self.sid, "Effect": self.effect, "Action": self.action, "NotAction": self.notaction
+                , "Resource": self.resource, "NotResource": self.notresource
+                , "Condition": self.condition, "NotCondition": self.notcondition
+                }
+            )
+
+        it "removes attributes that are NotSpecified":
+            self.statement.action = NotSpecified
+            self.statement.notresource = NotSpecified
+            self.statement.condition = NotSpecified
+            self.assertEqual(self.statement.statement, {
+                  "Sid": self.sid, "Effect": self.effect,                        "NotAction": self.notaction
+                , "Resource": self.resource
+                ,                              "NotCondition": self.notcondition
+                }
+            )
+
+        it "collapses single item lists":
+            self.statement.action = ["action2", "action1"]
+            self.statement.resource = ["res"]
+            self.assertEqual(self.statement.statement, {
+                  "Sid": self.sid, "Effect": self.effect
+                , "Action": ["action1", "action2"], "NotAction": self.notaction
+                , "Resource": "res", "NotResource": self.notresource
+                , "Condition": self.condition, "NotCondition": self.notcondition
+                }
+            )
+
+describe TestCase, "ResourcePolicyStatement":
+    before_each:
+        self.sid = mock.Mock(name="sid")
+        self.effect = mock.Mock(name="effect")
+        self.action = mock.Mock(name="action")
+        self.notaction = mock.Mock(name="notaction")
+        self.resource = mock.Mock(name="resource")
+        self.notresource = mock.Mock(name="notresource")
+        self.principal = mock.Mock(name="principal")
+        self.notprincipal = mock.Mock(name="notprincipal")
+        self.condition = mock.Mock(name="condition")
+        self.notcondition = mock.Mock(name="notcondition")
+        self.statement = ResourcePolicyStatement(self.sid, self.effect, self.action, self.notaction, self.resource, self.notresource, self.principal, self.notprincipal, self.condition, self.notcondition)
+
+    describe "merge_principal":
+        it "can merge a list of principal":
+            key = "principal"
+            val = {key: [{"AWS": "arn:aws:iam:one"}, {"Service": "ec2.amazonaws.com"}, {"Federated": "arn:aws:iam:two"}, {"Service": "lambda.amazonaws.com"}]}
+            self.assertEqual(self.statement.merge_principal(val, key), {"AWS": "arn:aws:iam:one", "Service": ["ec2.amazonaws.com", "lambda.amazonaws.com"], "Federated": "arn:aws:iam:two"})
+
+        it "returns as is if not a list":
+            key = 'principal'
+            val = {key: {"AWS": "hi"}}
+            self.assertEqual(self.statement.merge_principal(val, key), {"AWS": "hi"})
+
+    describe "statement":
+        it "returns a statement with all the capitalized versions of the keys":
+            merge_principal = mock.Mock(name="merge_principal", side_effect=lambda v, k: v[k])
+            with mock.patch.object(self.statement, "merge_principal", merge_principal):
+                self.assertEqual(self.statement.statement, {
+                      "Sid": self.sid, "Effect": self.effect, "Action": self.action, "NotAction": self.notaction
+                    , "Resource": self.resource, "NotResource": self.notresource
+                    , "Principal": self.principal, "NotPrincipal": self.notprincipal
+                    , "Condition": self.condition, "NotCondition": self.notcondition
+                    }
+                )
+
+        it "removes items that are notspecified":
+            merge_principal = mock.Mock(name="merge_principal", side_effect=lambda v, k: v[k])
+            self.statement.action = NotSpecified
+            self.statement.condition = NotSpecified
+            self.statement.notprincipal = NotSpecified
+            with mock.patch.object(self.statement, "merge_principal", merge_principal):
+                self.assertEqual(self.statement.statement, {
+                      "Sid": self.sid, "Effect": self.effect,                        "NotAction": self.notaction
+                    , "Resource": self.resource, "NotResource": self.notresource
+                    , "Principal": self.principal
+                    ,                              "NotCondition": self.notcondition
+                    }
+                )
+
+        it "defaults Sid and Effect":
+            self.statement.sid = NotSpecified
+            self.statement.effect = NotSpecified
+
+            merge_principal = mock.Mock(name="merge_principal", side_effect=lambda v, k: v[k])
+            with mock.patch.object(self.statement, "merge_principal", merge_principal):
+                self.assertEqual(self.statement.statement, {
+                      "Sid": "", "Effect": "Allow", "Action": self.action, "NotAction": self.notaction
+                    , "Resource": self.resource, "NotResource": self.notresource
+                    , "Principal": self.principal, "NotPrincipal": self.notprincipal
+                    , "Condition": self.condition, "NotCondition": self.notcondition
+                    }
+                )
+
+        it "Merges principals":
+            self.statement.principal = [{"AWS": "one"}, {"AWS": "two"}]
+            self.statement.notprincipal = NotSpecified
+            self.assertEqual(self.statement.statement, {
+                  "Sid": self.sid, "Effect": self.effect, "Action": self.action, "NotAction": self.notaction
+                , "Resource": self.resource, "NotResource": self.notresource
+                , "Principal": {"AWS": ["one", "two"]}
+                , "Condition": self.condition, "NotCondition": self.notcondition
+                }
+            )
+
+    describe "TrustStatement":
+        it "sets action depending on whether we have federated and action":
+            self.principal = [{"Federated": "one"}]
+            self.notprincipal = NotSpecified
+            statement = TrustStatement(self.sid, self.effect, self.action, self.notaction, self.resource, self.notresource, self.principal, self.notprincipal, self.condition, self.notcondition)
+            self.assertIs(statement.statement["Action"], self.action)
+
+            self.action = NotSpecified
+            statement = TrustStatement(self.sid, self.effect, self.action, self.notaction, self.resource, self.notresource, self.principal, self.notprincipal, self.condition, self.notcondition)
+            result = statement.statement
+            self.assertIs(result["NotAction"], self.notaction)
+            assert 'Action' not in result, result
+
+            self.notaction = NotSpecified
+            statement = TrustStatement(self.sid, self.effect, self.action, self.notaction, self.resource, self.notresource, self.principal, self.notprincipal, self.condition, self.notcondition)
+            self.assertEqual(statement.statement["Action"], "sts:AssumeRoleWithSAML")
+
+            self.principal = [{"AWS": "two"}]
+            statement = TrustStatement(self.sid, self.effect, self.action, self.notaction, self.resource, self.notresource, self.principal, self.notprincipal, self.condition, self.notcondition)
+            self.assertEqual(statement.statement["Action"], "sts:AssumeRole")
+
+            self.principal = NotSpecified
+            statement = TrustStatement(self.sid, self.effect, self.action, self.notaction, self.resource, self.notresource, self.principal, self.notprincipal, self.condition, self.notcondition)
+            result = statement.statement
+            assert "Action" not in result, result
+            assert "NotAction" not in result, result
+
+            self.notprincipal = [{"AWS": "three"}]
+            statement = TrustStatement(self.sid, self.effect, self.action, self.notaction, self.resource, self.notresource, self.principal, self.notprincipal, self.condition, self.notcondition)
+            self.assertEqual(statement.statement["Action"], "sts:AssumeRole")
+
+describe TestCase, "GrantStatement":
+    before_each:
+        self.grantee = mock.Mock(name="grantee")
+        self.retiree = mock.Mock(name="retiree")
+        self.operations = ["op1", "op2"]
+        self.grant_tokens = mock.Mock(name="grant_tokens")
+        self.constraints = mock.Mock(name="constraints")
+        self.statement = GrantStatement(self.grantee, self.retiree, self.operations, self.grant_tokens, self.constraints)
+
+    describe "statement":
+        it "returns a statement with the capitalized of all the fields":
+            self.assertEqual(self.statement.statement, {
+                  "GranteePrincipal": self.grantee, "RetireePrincipal": self.retiree
+                , "Operations": sorted(self.operations), "GrantTokens": self.grant_tokens
+                , "Constraints": self.constraints
+                }
+            )
+
+        it "doesn't include NotSpecified fields":
+            self.statement.operations = NotSpecified
+            self.statement.constraints = NotSpecified
+            self.assertEqual(self.statement.statement, {
+                  "GranteePrincipal": self.grantee, "RetireePrincipal": self.retiree
+                ,                                        "GrantTokens": self.grant_tokens
+                }
+            )
+
+        it "Makes sure grantee and retiree are singles":
+            self.statement.grantee = ['one']
+            self.statement.retiree = ['two']
+            self.assertEqual(self.statement.statement, {
+                  "GranteePrincipal": "one", "RetireePrincipal": "two"
+                , "Operations": sorted(self.operations), "GrantTokens": self.grant_tokens
+                , "Constraints": self.constraints
+                }
+            )

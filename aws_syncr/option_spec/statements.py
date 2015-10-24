@@ -300,10 +300,6 @@ class ResourcePolicyStatement(dictobj):
             if principal in statement:
                 statement[principal] = self.merge_principal(statement, principal)
 
-            for key, v in list(statement.get(principal, {}).items()):
-                if not v:
-                    del statement[principal][key]
-
         for thing in ("Action", "NotAction", "Resource", "NotResource", "Condition", "NotCondition", "Principal", "NotPrincipal"):
             if thing in statement and isinstance(statement[thing], list):
                 if len(statement[thing]) == 1:
@@ -320,11 +316,12 @@ class TrustStatement(ResourcePolicyStatement):
         statement = super(TrustStatement, self).statement
 
         if "Action" not in statement and 'NotAction' not in statement:
-            have_federated = "Principal" in statement and "Federated" in statement["Principal"] or "NotPrincipal" in statement and "Federated" in statement["NotPrincipal"]
-            if have_federated:
-                statement["Action"] = "sts:AssumeRoleWithSAML"
-            else:
-                statement["Action"] = "sts:AssumeRole"
+            if "Principal" in statement or "NotPrincipal" in statement:
+                have_federated = "Principal" in statement and "Federated" in statement["Principal"] or "NotPrincipal" in statement and "Federated" in statement["NotPrincipal"]
+                if have_federated:
+                    statement["Action"] = "sts:AssumeRoleWithSAML"
+                else:
+                    statement["Action"] = "sts:AssumeRole"
 
         return statement
 
@@ -333,9 +330,12 @@ class GrantStatement(dictobj):
 
     @property
     def statement(self):
+        operations = self.operations
+        if operations is not NotSpecified:
+            operations = sorted(self.operations)
         statement = {
               "GranteePrincipal": self.grantee, "RetireePrincipal": self.retiree
-            , "Operations": sorted(self.operations), "GrantTokens": self.grant_tokens
+            , "Operations": self.operations, "GrantTokens": self.grant_tokens
             , "Constraints": self.constraints
             }
 
