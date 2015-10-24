@@ -1,6 +1,6 @@
 from aws_syncr.errors import BadAmazon, BadCredentials
 
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError
 
 from contextlib import contextmanager
 
@@ -36,6 +36,8 @@ class AmazonMixin:
     def catch_invalid_credentials(self):
         try:
             yield
+        except NoCredentialsError:
+            raise BadCredentials("Failed to find valid credentials")
         except ClientError as error:
             if error.response["ResponseMetadata"]["HTTPStatsuCode"] == 403:
                 raise BadCredentials("Failed to find valid credentials", error=error.message)
