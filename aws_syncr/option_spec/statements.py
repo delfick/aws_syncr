@@ -184,7 +184,7 @@ class principal_service_spec(sb.Spec):
     def normalise(self, meta, val):
         if val == "ec2":
             return "ec2.amazonaws.com"
-        raise BadOption("Unknown special principal service", specified=val)
+        raise BadOption("Unknown special principal service", specified=val, meta=meta)
 
 class principal_spec(sb.Spec):
     def setup(self, self_type, self_name):
@@ -215,6 +215,7 @@ class principal_spec(sb.Spec):
         for key, val in list(result.items()):
             if not val:
                 del result[key]
+                continue
 
             # Amazon gets rid of the lists if only one item
             # And this mucks around with the diffing....

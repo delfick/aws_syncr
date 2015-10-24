@@ -1,8 +1,12 @@
 # coding: spec
 
 from aws_syncr.option_spec.statements import (
-      statement_spec, resource_policy_dict, permission_dict, trust_dict
-    , capitalize
+      statement_spec, resource_policy_dict, permission_dict, trust_dict, capitalize
+    , trust_statement_spec, TrustStatement
+    , grant_statement_spec, GrantStatement
+    , principal_service_spec, principal_spec
+    , permission_statement_spec, PermissionStatement
+    , resource_policy_statement_spec, ResourcePolicyStatement
     )
 from aws_syncr.errors import BadOption, BadPolicy
 
@@ -382,3 +386,176 @@ describe TestCase, "trust_dict":
             self.assertEqual(spec.normalise(self.meta, {"NotPrincipal": "val1"}), {"NotPrincipal": "val1"})
             self.assertEqual(spec.normalise(self.meta, {"one": "two"}), {"notprincipal": {"one": "two"}})
 
+describe TestCase, "permission_statement_spec":
+    before_each:
+        self.meta = mock.Mock(name="meta", spec=Meta)
+
+    it "deprecates allow and disallow":
+        spec = permission_statement_spec("random", "random")
+        with self.assertRaisesDeprecated("allow", "Use 'effect: Allow|Deny' instead", self.meta):
+            spec.normalise(self.meta, {"allow": True})
+
+        with self.assertRaisesDeprecated("disallow", "Use 'effect: Allow|Deny' instead", self.meta):
+            spec.normalise(self.meta, {"disallow": True})
+
+    it "requires action, effect and resource":
+        spec = permission_statement_spec("random", "random")
+        missing = ['Action or NotAction or action or notaction', 'Effect or effect', 'NotResource or Resource or notresource or resource']
+        with self.fuzzyAssertRaisesError(BadPolicy, "Statement is missing required properties", missing=missing):
+            spec.normalise(self.meta, {})
+
+        missing = ['Effect or effect', 'NotResource or Resource or notresource or resource']
+        with self.fuzzyAssertRaisesError(BadPolicy, "Statement is missing required properties", missing=missing):
+            spec.normalise(self.meta, {'action': "s3:*"})
+
+        missing = ['NotResource or Resource or notresource or resource']
+        with self.fuzzyAssertRaisesError(BadPolicy, "Statement is missing required properties", missing=missing):
+            spec.normalise(self.meta, {'action': "s3:*", "Effect": "Allow"})
+
+        spec.normalise(self.meta, {'action': "s3:*", "Effect": "Allow", "notresource": ""})
+        assert True, "Don't expect an error"
+
+    it "doesn't like principal or notprincipal":
+        spec = permission_statement_spec("random", "random")
+
+        with self.fuzzyAssertRaisesError(BadOption, "Cannot specify arg in this statement", arg="principal", capitalized="Principal", meta=self.meta):
+            spec.normalise(self.meta, {'action': "s3:*", "Effect": "Allow", "notresource": "", "principal": "parent"})
+
+        with self.fuzzyAssertRaisesError(BadOption, "Cannot specify arg in this statement", arg="notprincipal", capitalized="NotPrincipal", meta=self.meta):
+            spec.normalise(self.meta, {'action': "s3:*", "Effect": "Allow", "notresource": "", "NotPrincipal": "parent"})
+
+    it "returns a PermissionStatement":
+        spec = permission_statement_spec("random", "random")
+        statement = spec.normalise(self.meta, {'action': "s3:*", "Effect": "Allow", "notresource": ""})
+        self.assertEqual(type(statement), PermissionStatement)
+
+describe TestCase, "resource_policy_statement_spec":
+    before_each:
+        self.meta = mock.Mock(name="meta", spec=Meta)
+
+    it "deprecates allow and disallow":
+        spec = resource_policy_statement_spec("random", "random")
+        with self.assertRaisesDeprecated("allow", "Use 'effect: Allow|Deny' instead", self.meta):
+            spec.normalise(self.meta, {"allow": True})
+
+        with self.assertRaisesDeprecated("disallow", "Use 'effect: Allow|Deny' instead", self.meta):
+            spec.normalise(self.meta, {"disallow": True})
+
+    it "has no required args":
+        spec = resource_policy_statement_spec("random", "random")
+        spec.normalise(self.meta, {})
+        assert True, "Don't expect an error"
+
+    it "returns a ResourcePolicyStatement":
+        spec = resource_policy_statement_spec("random", "random")
+        statement = spec.normalise(self.meta, {})
+        self.assertEqual(type(statement), ResourcePolicyStatement)
+
+describe TestCase, "grant_statement_spec":
+    before_each:
+        self.meta = mock.Mock(name="meta", spec=Meta)
+
+    it "has no required args":
+        spec = grant_statement_spec("random", "random")
+        spec.normalise(self.meta, {})
+        assert True, "Don't expect an error"
+
+    it "returns a GrantStatement":
+        spec = grant_statement_spec("random", "random")
+        statement = spec.normalise(self.meta, {})
+        self.assertEqual(type(statement), GrantStatement)
+
+describe TestCase, "trust_statement_spec":
+    before_each:
+        self.meta = mock.Mock(name="meta", spec=Meta)
+
+    it "has no required args":
+        spec = trust_statement_spec("random", "random")
+        spec.normalise(self.meta, {})
+        assert True, "Don't expect an error"
+
+    it "returns a TrustStatement":
+        spec = trust_statement_spec("random", "random")
+        statement = spec.normalise(self.meta, {})
+        self.assertEqual(type(statement), TrustStatement)
+
+describe TestCase, "principal_service_spec":
+    before_each:
+        self.meta = mock.Mock(name="meta", spec=Meta)
+
+    it "converts ec2 into ec2.amazonaws.com":
+        self.assertEqual(principal_service_spec().normalise(self.meta, "ec2"), "ec2.amazonaws.com")
+
+    it "complains about unknown services":
+        with self.fuzzyAssertRaisesError(BadOption, "Unknown special principal service", specified="unknown", meta=self.meta):
+            principal_service_spec().normalise(self.meta, "unknown")
+
+describe TestCase, "principal_spec":
+    before_each:
+        self.meta = mock.Mock(name="meta", spec=Meta)
+
+    it "takes in self_type and self_name":
+        self_type = mock.Mock(name="self_type")
+        self_name = mock.Mock(name='self_name')
+        spec = principal_spec(self_type, self_name)
+        self.assertIs(spec.self_type, self_type)
+        self.assertIs(spec.self_name, self_name)
+
+    describe "normalise":
+        it "converts iam into AWS":
+            val = {"iam": "etc"}
+            self_type = mock.Mock(name='self_type')
+            self_name = mock.Mock(name="self_name")
+
+            iam_spec = mock.Mock(name="iam_spec")
+            def iam_specs(v, st, sn):
+                self.assertIs(v, val)
+                self.assertIs(st, self_type)
+                self.assertIs(sn, self_name)
+                return iam_spec
+            iam_specs = mock.Mock(name="iam_specs", side_effect=iam_specs)
+            iam_spec.normalise.return_value = ["arn:aws:iam:etc"]
+
+            spec = principal_spec(self_type, self_name)
+            with mock.patch("aws_syncr.option_spec.statements.iam_specs", iam_specs):
+                self.assertEqual(spec.normalise(self.meta, val), {"AWS": "arn:aws:iam:etc"})
+
+        it "converts service into principal_service_spec":
+            val = {"service": "ec2"}
+            self_type = mock.Mock(name='self_type')
+            self_name = mock.Mock(name="self_name")
+
+            ret = mock.Mock(name="ret")
+            principal_service_spec_instance = mock.Mock(name='principal_service_spec_instance')
+            principal_service_spec = mock.Mock(name="principal_service_spec", return_value=principal_service_spec_instance)
+            principal_service_spec_instance.normalise.return_value = ret
+
+            iam_spec = mock.Mock(name="iam_spec")
+            iam_specs = mock.Mock(name="iam_specs")
+            iam_specs.return_value = iam_spec
+            iam_spec.normalise.return_value = []
+
+            spec = principal_spec(self_type, self_name)
+            with mock.patch("aws_syncr.option_spec.statements.iam_specs", iam_specs):
+                with mock.patch("aws_syncr.option_spec.statements.principal_service_spec", principal_service_spec):
+                    self.assertEqual(spec.normalise(self.meta, val), {"Service": ret})
+
+        it "converts federated into a resource_spec":
+            val = {"federated": "ec2"}
+            self_type = mock.Mock(name='self_type')
+            self_name = mock.Mock(name="self_name")
+
+            ret = mock.Mock(name="ret")
+            resource_spec_instance = mock.Mock(name='resource_spec_instance')
+            resource_spec = mock.Mock(name="resource_spec", return_value=resource_spec_instance)
+            resource_spec_instance.normalise.return_value = [ret]
+
+            iam_spec = mock.Mock(name="iam_spec")
+            iam_specs = mock.Mock(name="iam_specs")
+            iam_specs.return_value = iam_spec
+            iam_spec.normalise.return_value = []
+
+            spec = principal_spec(self_type, self_name)
+            with mock.patch("aws_syncr.option_spec.statements.iam_specs", iam_specs):
+                with mock.patch("aws_syncr.option_spec.statements.resource_spec", resource_spec):
+                    self.assertEqual(spec.normalise(self.meta, val), {"Federated": ret})

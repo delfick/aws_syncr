@@ -125,14 +125,14 @@ describe TestCase, "__register__":
             , grant=[GrantStatement(grantee=["arn:aws:iam::123456789123:role/bob"], operations=["Decrypt"], retiree=NotSpecified, constraints=NotSpecified, grant_tokens=NotSpecified)]
             )
         key1_expected.policy = Document(statements=[
-            ResourcePolicyStatement(sid="", effect=NotSpecified, action=["kms:*"], notaction=NotSpecified, resource=["*"], notresource=NotSpecified, principal=[{"AWS": "arn:aws:iam::123456789123:root", "Federated": [], "Service": []}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
+            ResourcePolicyStatement(sid="", effect=NotSpecified, action=["kms:*"], notaction=NotSpecified, resource=["*"], notresource=NotSpecified, principal=[{"AWS": "arn:aws:iam::123456789123:root"}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
             ])
 
         key2_expected = EncryptionKey(name="key2", location="us-east-1", description=""
             , grant=[GrantStatement(grantee=["arn:aws:sts::123456789123:assumed-role/tim"], operations=["Encrypt", "GenerateDataKey"], retiree=NotSpecified, constraints=NotSpecified, grant_tokens=NotSpecified)]
             )
         key2_expected.policy = Document(statements=[
-            ResourcePolicyStatement(sid="", effect=NotSpecified, action=["kms:*"], notaction=NotSpecified, resource=["*"], notresource=NotSpecified, principal=[{"AWS": "arn:aws:iam::123456789123:root", "Federated": [], "Service": []}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
+            ResourcePolicyStatement(sid="", effect=NotSpecified, action=["kms:*"], notaction=NotSpecified, resource=["*"], notresource=NotSpecified, principal=[{"AWS": "arn:aws:iam::123456789123:root"}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
             ])
 
         keys = EncryptionKeys(items={"key1": key1_expected, "key2": key2_expected})

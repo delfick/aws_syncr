@@ -1,3 +1,4 @@
+from input_algorithms.errors import DeprecatedKey, BadSpecValue
 from unittest import TestCase as UnitTestTestCase
 from delfick_error import DelfickErrorTestMixin
 from contextlib import contextmanager
@@ -36,4 +37,9 @@ class TestCase(UnitTestTestCase, DelfickErrorTestMixin):
             if location and os.path.exists(location):
                 shutil.rmtree(location)
 
+    @contextmanager
+    def assertRaisesDeprecated(self, key, reason, meta):
+        depre = DeprecatedKey(key=key, reason=reason, meta=meta)
+        with self.fuzzyAssertRaisesError(BadSpecValue, "Failed to validate", _errors=[depre]):
+            yield
 

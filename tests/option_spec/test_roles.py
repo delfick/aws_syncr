@@ -156,7 +156,7 @@ describe TestCase, "__register__":
         result = __register__()["roles"].normalise(Meta(self.everything, []).at("roles"), self.spec)
 
         stuff_trust = [
-              TrustStatement(sid=NotSpecified, effect=NotSpecified, action=NotSpecified, notaction=NotSpecified, resource=NotSpecified, notresource=NotSpecified, notprincipal=[{"AWS":"arn:aws:iam::445829383783:role/bamboo/agent", "Federated": [], "Service": []}], principal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
+              TrustStatement(sid=NotSpecified, effect=NotSpecified, action=NotSpecified, notaction=NotSpecified, resource=NotSpecified, notresource=NotSpecified, notprincipal=[{"AWS":"arn:aws:iam::445829383783:role/bamboo/agent"}], principal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
             ]
         stuff_permission = [
               PermissionStatement(sid=NotSpecified, effect="Allow", action="s3:*", notaction=NotSpecified, resource="*", notresource=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
@@ -165,8 +165,8 @@ describe TestCase, "__register__":
             ]
 
         blah_trust = [
-              TrustStatement(sid=NotSpecified, effect=NotSpecified, action=NotSpecified, notaction=NotSpecified, resource=NotSpecified, notresource=NotSpecified, principal=[{'AWS': "arn:aws:sts::123456789123:assumed-role/Administrator/smoore", "Federated": [], "Service": []}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
-            , TrustStatement(sid=NotSpecified, effect=NotSpecified, action=NotSpecified, notaction=NotSpecified, resource=NotSpecified, notresource=NotSpecified, principal=[{'AWS': ["arn:aws:sts::123456789123:assumed-role/NormalUser/bob", "arn:aws:sts::123456789123:assumed-role/NormalUser/jon"], "Federated": [], "Service": []}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
+              TrustStatement(sid=NotSpecified, effect=NotSpecified, action=NotSpecified, notaction=NotSpecified, resource=NotSpecified, notresource=NotSpecified, principal=[{'AWS': "arn:aws:sts::123456789123:assumed-role/Administrator/smoore"}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
+            , TrustStatement(sid=NotSpecified, effect=NotSpecified, action=NotSpecified, notaction=NotSpecified, resource=NotSpecified, notresource=NotSpecified, principal=[{'AWS': ["arn:aws:sts::123456789123:assumed-role/NormalUser/bob", "arn:aws:sts::123456789123:assumed-role/NormalUser/jon"]}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
             ]
         blah_permission = [
               PermissionStatement(sid=NotSpecified, effect="Deny", action=["iam:*"], notaction=NotSpecified, resource=["arn:aws:iam::123456789123:role/blah_role"], notresource=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
