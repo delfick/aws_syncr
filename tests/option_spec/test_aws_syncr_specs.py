@@ -31,6 +31,6 @@ describe TestCase, "Aws_syncr":
         with self.a_directory() as config_folder:
             aws_syncr = {"config_folder": config_folder, "location": "{loc}", "environment": "{env}"}
             everything = {"loc": "the_location", "env": "totes"}
-            expected = {"debug": False, "extra": "", "dry_run": False, "location": "the_location", "environment": "totes", "config_folder": config_folder}
+            expected = {"artifact": "", "debug": False, "extra": "", "dry_run": False, "location": "the_location", "environment": "totes", "config_folder": config_folder}
             self.assertEqual(AwsSyncrSpec().aws_syncr_spec.normalise(Meta(everything, []), aws_syncr), expected)
 

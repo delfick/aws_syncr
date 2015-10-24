@@ -30,6 +30,7 @@ class AwsSyncr(dictobj):
         , "dry_run": "Whether to do a dry run or not"
         , "extra": "Sets the ``$@`` variable. Alternatively specify these after a ``--`` on the commandline"
         , "location": "The location to base everything in"
+        , "artifact": "Arbitrary argument"
         , "environment": "The environment to sync"
         , "config_folder": "The folder where the configuration can be found"
         }
@@ -54,6 +55,7 @@ class AwsSyncrSpec(object):
             , debug = defaulted(boolean(), False)
             , dry_run = defaulted(boolean(), False)
             , location = defaulted(formatted_string, "ap-southeast-2")
+            , artifact = formatted_string
             , environment = formatted_string
             , config_folder = directory_spec()
             )

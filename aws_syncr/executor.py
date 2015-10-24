@@ -17,7 +17,7 @@ class App(App):
     cli_categories = ['aws_syncr']
     cli_description = "Application that reads YAML and syncs definitions with amazon"
     cli_environment_defaults = {"AWS_SYNCR_CONFIG_FOLDER": ("--config-folder", '.')}
-    cli_positional_replacements = [('--environment'), ('--task', 'sync')]
+    cli_positional_replacements = [('--environment'), ('--task', 'sync'), '--artifact']
 
     def execute(self, args, extra_args, cli_args, logging_handler, no_docker=False):
         cli_args["aws_syncr"]["extra"] = extra_args
@@ -62,6 +62,12 @@ class App(App):
             , help = "Environment to read options from"
             , dest = "aws_syncr_environment"
             , **defaults['--environment']
+            )
+
+        parser.add_argument("--artifact"
+            , help = "Extra argument to be used as decided by each task"
+            , dest = "aws_syncr_artifact"
+            , **defaults['--artifact']
             )
 
         return parser
