@@ -39,12 +39,12 @@ class Collector(Collector):
         if not os.path.isdir(configuration_folder):
             raise BadOption("Specified configuration folder is not a directory!", wanted=configuration_folder)
         available = [os.path.join(configuration_folder, name) for name in os.listdir(configuration_folder)]
-        available_environments = [path for path in available if os.path.isdir(path)]
-        if environment not in available_environments:
+        available_environments = [os.path.abspath(path) for path in available if os.path.isdir(path)]
+        if os.path.abspath(environment) not in available_environments:
             raise BadOption("Specified environment doesn't exist", available=available_environments, wanted=environment)
 
-        environment_files = []
-        for root, dirs, files in os.walk(os.path.join(configuration_folder, environment)):
+        environment_files = [os.path.join(environment, "../accounts.yaml")]
+        for root, dirs, files in os.walk(environment):
             environment_files.extend(os.path.join(root, filename) for filename in files)
 
         with tempfile.NamedTemporaryFile() as fle:
