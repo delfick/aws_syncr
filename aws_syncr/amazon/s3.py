@@ -47,6 +47,10 @@ class S3(AmazonMixin, object):
         if current_location != location:
             raise AwsSyncrError("Sorry, can't change the location of a bucket!", wanted=location, currently=current_location, bucket=name)
 
+        # Make sure we use the correct endpoint to get info from the bucket
+        # So that website buckets don't complain
+        bucket_info.meta.client = self.amazon.session.client("s3", location)
+
         bucket_document = ""
         with self.ignore_missing():
             bucket_document = bucket_info.Policy().policy
