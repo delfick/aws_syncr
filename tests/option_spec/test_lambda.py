@@ -11,10 +11,14 @@ from input_algorithms.spec_base import NotSpecified
 from input_algorithms.errors import BadSpecValue
 from input_algorithms.meta import Meta
 from option_merge import MergedOptions
+from contextlib import contextmanager
 from tests.helpers import TestCase
+from textwrap import dedent
+import zipfile
 import shutil
 import uuid
 import mock
+import os
 
 describe TestCase, "only_one_spec":
     before_each:
@@ -233,10 +237,124 @@ describe TestCase, "InlineCode":
         ic = InlineCode("codez", "python")
         self.assertIs(ic.s3_address, None)
 
+    describe "arcname":
+        it "gives lambda_function.py if runtime is python":
+            self.assertEqual(InlineCode("", "python").arcname, "./lambda_function.py")
+
+        it "gives main.java if runtime is java":
+            self.assertEqual(InlineCode("", "java").arcname, "./main.java")
+
+        it "gives index.js if runtime is nodejs":
+            self.assertEqual(InlineCode("", "nodejs").arcname, "./index.js")
+
+    describe "code_in_file":
+        it "yields a filename containing the codez":
+            code = """
+                def hello_world(self):
+                    print("hello_world")
+            """
+
+            with InlineCode(code, "python").code_in_file() as filename:
+                self.assertIs(os.path.isfile(filename), True)
+                with open(filename) as fle:
+                    self.assertEqual(fle.read(), dedent(code))
+
+    describe "zipfile":
+        it "yields a zipfile with the code at arcname":
+            an = str(uuid.uuid1())
+            code = "./{0}".format(str(uuid.uuid1()))
+            class sub(InlineCode):
+                arcname = an
+
+            ic = sub(code, "python")
+            with ic.zipfile() as zf:
+                with self.a_directory() as directory:
+                    zipfile.ZipFile(zf).extractall(directory)
+                    self.assertEqual(os.listdir(directory), [an])
+                    with open(os.path.join(directory, an)) as fle:
+                        self.assertEqual(fle.read(), code)
+
 describe TestCase, "DirectoryCode":
+    before_each:
+        self.p1, self.c1 = str(uuid.uuid1()), str(uuid.uuid1())
+        self.p2, self.c2 = str(uuid.uuid1()), str(uuid.uuid1())
+
+        self.subdir = str(uuid.uuid1())
+        self.p3 = os.path.join(self.subdir, str(uuid.uuid1()))
+        self.c3 = str(uuid.uuid1())
+
+        self.p4 = os.path.join(self.subdir, str(uuid.uuid1()))
+        self.c4 = str(uuid.uuid1())
+
+        self.granddir = str(uuid.uuid1())
+        self.p5 = os.path.join(self.subdir, self.granddir, str(uuid.uuid1()))
+        self.c5 = str(uuid.uuid1())
+
+        self.paths = {
+              self.p1: self.c1
+            , self.p2: self.c2
+            , self.p3: self.c3
+            , self.p4: self.c4
+            , self.p5: self.c5
+            }
+
+    @contextmanager
+    def make_directory(self):
+        with self.a_directory() as directory:
+            for path, content in self.paths.items():
+                location = os.path.join(directory, path)
+                parent = os.path.dirname(location)
+                if not os.path.exists(parent):
+                    os.makedirs(parent)
+
+                with open(location, "w") as fle:
+                    fle.write(content)
+            yield directory
+
     it "has an s3 address of None":
         dc = DirectoryCode("a_path", [])
         self.assertIs(dc.s3_address, None)
+
+    describe "files":
+        it "yields all the files":
+            with self.make_directory() as directory:
+                found = list(DirectoryCode(directory, []).files())
+            self.assertEqual(sorted(found), sorted([
+                  (os.path.join(directory, self.p1), self.p1)
+                , (os.path.join(directory, self.p2), self.p2)
+                , (os.path.join(directory, self.p3), self.p3)
+                , (os.path.join(directory, self.p4), self.p4)
+                , (os.path.join(directory, self.p5), self.p5)
+                ]))
+
+        it "excludes files with the exclude functionality":
+            with self.make_directory() as directory:
+                found = list(DirectoryCode(directory, ["{0}/*".format(self.subdir)]).files())
+            self.assertEqual(sorted(found), sorted([
+                  (os.path.join(directory, self.p1), self.p1)
+                , (os.path.join(directory, self.p2), self.p2)
+                ]))
+
+    describe "zipfile":
+        it "includes the files from the files method":
+            with self.make_directory() as directory:
+                files = [
+                      (os.path.join(directory, self.p1), self.p1)
+                    , (os.path.join(directory, self.p3), self.p3)
+                    ]
+                dc = DirectoryCode(directory, [])
+                with mock.patch.object(dc, "files", lambda: files):
+                    with self.a_directory() as dir2:
+                        with dc.zipfile() as filename:
+                            zipfile.ZipFile(filename).extractall(dir2)
+                        self.assertEqual(sorted(os.listdir(dir2)), [self.p1, self.subdir])
+                        self.assertEqual(os.listdir(os.path.join(dir2, self.subdir)), [os.path.basename(self.p3)])
+
+                        with open(os.path.join(dir2, self.p1)) as fle:
+                            self.assertEqual(fle.read(), self.c1)
+
+                        with open(os.path.join(dir2, self.p3)) as fle:
+                            self.assertEqual(fle.read(), self.c3)
 
 describe TestCase, "__register__":
     before_each:

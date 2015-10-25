@@ -8,7 +8,13 @@ from input_algorithms import spec_base as sb
 from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
 from option_merge import MergedOptions
+from contextlib import contextmanager
+from textwrap import dedent
+import tempfile
+import fnmatch
+import zipfile
 import six
+import os
 
 class only_one_spec(sb.Spec):
     def setup(self, spec):
@@ -84,6 +90,10 @@ class function_code_spec(sb.Spec):
             if isinstance(val['directory'], six.string_types):
                 directory = {"directory": val['directory']}
 
+            if 'directory' in directory:
+                formatted_string = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
+                directory['directory'] = formatted_string.normalise(meta.at("directory").at("directory"), directory['directory'])
+
             return sb.create_spec(DirectoryCode
                 , directory = sb.directory_spec()
                 , exclude = sb.listof(sb.string_spec())
@@ -147,13 +157,56 @@ class S3Code(dictobj):
     def s3_address(self):
         return "s3://{0}/{1}".format(self.bucket, self.key)
 
+    @contextmanager
+    def zipfile(self):
+        yield
+
 class InlineCode(dictobj):
     fields = ["code", "runtime"]
     s3_address = None
 
+    @property
+    def arcname(self):
+        if self.runtime == "python":
+            return "./lambda_function.py"
+        elif self.runtime == "java":
+            return "./main.java"
+        else:
+            return "./index.js"
+
+    @contextmanager
+    def code_in_file(self):
+        with tempfile.NamedTemporaryFile() as fle:
+            fle.write(dedent(self.code).encode('utf-8'))
+            fle.flush()
+            yield fle.name
+
+    @contextmanager
+    def zipfile(self):
+        with tempfile.NamedTemporaryFile() as fle:
+            with self.code_in_file() as filename:
+                with zipfile.ZipFile(fle.name, "w") as zf:
+                    zf.write(filename, self.arcname)
+            yield fle.name
+
 class DirectoryCode(dictobj):
     fields = ["directory", "exclude"]
     s3_address = None
+
+    def files(self):
+        for root, dirs, files in os.walk(self.directory):
+            for fle in files:
+                location = os.path.join(root, fle)
+                if not any(fnmatch.fnmatch(location, os.path.join(self.directory, ex)) for ex in self.exclude):
+                    yield location, os.path.relpath(location, self.directory)
+
+    @contextmanager
+    def zipfile(self):
+        with tempfile.NamedTemporaryFile() as fle:
+            with zipfile.ZipFile(fle.name, "w") as zf:
+                for filename, arcname in self.files():
+                    zf.write(filename, arcname)
+            yield fle.name
 
 def __register__():
     return {"lambda": sb.container_spec(Lambdas, sb.dictof(sb.string_spec(), lambdas_spec()))}
