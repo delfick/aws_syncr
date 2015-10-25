@@ -51,11 +51,11 @@ class function_handler_spec(sb.Spec):
         runtime = meta.everything['.'.join(path)].get("runtime", "python")
         runtime = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at("runtime"), runtime)
 
-        if runtime == 'java':
+        if runtime == 'java8':
             raise BadSpecValue("No default function handler for java", meta=meta)
         elif runtime == 'nodejs':
             return "index.handler"
-        elif runtime == 'python':
+        elif runtime == 'python2.7':
             return "lambda_function.lambda_handler"
         else:
             raise BadSpecValue("No default function handler for {0}".format(runtime), meta=meta)
@@ -177,9 +177,9 @@ class InlineCode(dictobj):
 
     @property
     def arcname(self):
-        if self.runtime == "python":
+        if self.runtime == "python2.7":
             return "./lambda_function.py"
-        elif self.runtime == "java":
+        elif self.runtime == "java8":
             return "./main.java"
         else:
             return "./index.js"

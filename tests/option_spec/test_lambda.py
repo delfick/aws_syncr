@@ -83,7 +83,7 @@ describe TestCase, "function_handler_spec":
 
     describe "NotSpecified":
         it "complains if runtime is java":
-            self.meta.everything = MergedOptions.using({"lambda": {"function": {"runtime": "java"}}})
+            self.meta.everything = MergedOptions.using({"lambda": {"function": {"runtime": "java8"}}})
             meta = self.meta.at("lambda").at("function").at("handler")
             with self.fuzzyAssertRaisesError(BadSpecValue, "No default function handler for java", meta=meta):
                 function_handler_spec().normalise(meta, NotSpecified)
@@ -93,8 +93,8 @@ describe TestCase, "function_handler_spec":
             meta = self.meta.at("lambda").at("function").at("handler")
             self.assertEqual(function_handler_spec().normalise(meta, NotSpecified), "index.handler")
 
-        it "returns lambda_function.lambda_handler for runtime of python":
-            self.meta.everything = MergedOptions.using({"lambda": {"function": {"runtime": "python"}}})
+        it "returns lambda_function.lambda_handler for runtime of python2.7":
+            self.meta.everything = MergedOptions.using({"lambda": {"function": {"runtime": "python2.7"}}})
             meta = self.meta.at("lambda").at("function").at("handler")
             self.assertEqual(function_handler_spec().normalise(meta, NotSpecified), "lambda_function.lambda_handler")
 
@@ -160,25 +160,25 @@ describe TestCase, "function_code_spec":
 
 describe TestCase, "lambdas_spec":
     it "overrides the function name with the key of the specification":
-        spec = {"name": "overridden", "location": "ap-southeast-2", "code": {"inline": "blah"}, "role": "arn", "runtime": "python"}
+        spec = {"name": "overridden", "location": "ap-southeast-2", "code": {"inline": "blah"}, "role": "arn", "runtime": "python2.7"}
         everything = MergedOptions.using({"lambda": {"function": spec}})
         result = lambdas_spec().normalise(Meta(everything, [('lambda', ""), ('function', "")]), spec)
         self.assertEqual(result.name, "function")
 
     it "merges with a template":
-        spec = {"use": "blah", "code": {"inline": "codez"}, "timeout": 30, "runtime": "python"}
+        spec = {"use": "blah", "code": {"inline": "codez"}, "timeout": 30, "runtime": "python2.7"}
         everything = MergedOptions.using({"lambda": {"function": spec}, "templates": {"blah": {"location": "ap-southeast-2", "role": "arn"}}})
         result = lambdas_spec().normalise(Meta(everything, []).at("lambda").at("function"), spec)
         self.assertEqual(result
             , Lambda(
-                  name="function", location="ap-southeast-2", code={"code":"codez", "runtime":"python"}, runtime="python"
+                  name="function", location="ap-southeast-2", code={"code":"codez", "runtime":"python2.7"}, runtime="python2.7"
                 , handler="lambda_function.lambda_handler", memory_size=128, timeout=30, sample_event=''
                 , description = '', role="arn"
                 )
             )
 
     it "must ensure memory_size is divisble by 64":
-        spec = {"name": "overridden", "location": "ap-southeast-2", "code": {"inline": "blah"}, "role": "arn", "runtime": "python"}
+        spec = {"name": "overridden", "location": "ap-southeast-2", "code": {"inline": "blah"}, "role": "arn", "runtime": "python2.7"}
         spec["memory_size"] = 63
         everything = MergedOptions.using({"lambda": {"function": spec}})
         with self.fuzzyAssertRaisesError(BadSpecValue, "Value should be divisible by 64"):
@@ -234,15 +234,15 @@ describe TestCase, "S3Code":
 
 describe TestCase, "InlineCode":
     it "has an s3 address of None":
-        ic = InlineCode("codez", "python")
+        ic = InlineCode("codez", "python2.7")
         self.assertIs(ic.s3_address, None)
 
     describe "arcname":
-        it "gives lambda_function.py if runtime is python":
-            self.assertEqual(InlineCode("", "python").arcname, "./lambda_function.py")
+        it "gives lambda_function.py if runtime is python2.7":
+            self.assertEqual(InlineCode("", "python2.7").arcname, "./lambda_function.py")
 
-        it "gives main.java if runtime is java":
-            self.assertEqual(InlineCode("", "java").arcname, "./main.java")
+        it "gives main.java if runtime is java8":
+            self.assertEqual(InlineCode("", "java8").arcname, "./main.java")
 
         it "gives index.js if runtime is nodejs":
             self.assertEqual(InlineCode("", "nodejs").arcname, "./index.js")
@@ -254,7 +254,7 @@ describe TestCase, "InlineCode":
                     print("hello_world")
             """
 
-            with InlineCode(code, "python").code_in_file() as filename:
+            with InlineCode(code, "python2.7").code_in_file() as filename:
                 self.assertIs(os.path.isfile(filename), True)
                 with open(filename) as fle:
                     self.assertEqual(fle.read(), dedent(code))
@@ -266,7 +266,7 @@ describe TestCase, "InlineCode":
             class sub(InlineCode):
                 arcname = an
 
-            ic = sub(code, "python")
+            ic = sub(code, "python2.7")
             with ic.zipfile() as zf:
                 with self.a_directory() as directory:
                     zipfile.ZipFile(zf).extractall(directory)
@@ -360,7 +360,7 @@ describe TestCase, "__register__":
     before_each:
         self.function1 = {
               'role': "arn:etc:1", 'code': {"inline": "codez"}
-            , 'timeout': 30, 'runtime': "python"
+            , 'timeout': 30, 'runtime': "python2.7"
             , 'location': "ap-southeast-2", 'description': "a function!"
             , 'sample_event': "sample", 'memory_size': 192
             }
@@ -379,7 +379,7 @@ describe TestCase, "__register__":
         lambdas = __register__()['lambda'].normalise(self.meta.at("lambda"), self.everything['lambda'])
         self.assertEqual(lambdas, Lambdas({
               "func1": Lambda(
-                  name="func1", role="arn:etc:1", code=InlineCode("codez", "python"), timeout=30, runtime="python"
+                  name="func1", role="arn:etc:1", code=InlineCode("codez", "python2.7"), timeout=30, runtime="python2.7"
                 , location="ap-southeast-2", description="a function!", sample_event="sample", memory_size=192
                 , handler="lambda_function.lambda_handler"
                 )

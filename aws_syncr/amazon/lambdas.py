@@ -40,9 +40,8 @@ class Lambdas(AmazonMixin, object):
         with self.catch_boto_400("Couldn't Make function", function=name):
             for _ in self.change("+", "function", function=name):
                 kwargs = dict(
-                      FunctionName=name, Runtime=runtime, role=role, handler=handler
-                    , description = description, Timeout=timeout, MemorySize=memory_size
-                    , Publish = True
+                      FunctionName=name, Runtime=runtime, Role=role, Handler=handler
+                    , Description = description, Timeout=timeout, MemorySize=memory_size
                     )
 
                 with self.code_options(code) as options:
