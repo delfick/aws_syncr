@@ -38,14 +38,14 @@ class Lambdas(AmazonMixin, object):
     def create_function(self, name, description, location, runtime, role, handler, timeout, memory_size, code):
         client = self.amazon.session.client('lambda', location)
         with self.catch_boto_400("Couldn't Make function", function=name):
-            for _ in self.change("+", "function", bucket=name):
+            for _ in self.change("+", "function", function=name):
                 kwargs = dict(
                       FunctionName=name, Runtime=runtime, role=role, handler=handler
                     , description = description, Timeout=timeout, MemorySize=memory_size
                     , Publish = True
                     )
 
-                with code_options(code) as options:
+                with self.code_options(code) as options:
                     kwargs["Code"] = options
                     client.create_function(**kwargs)
 
