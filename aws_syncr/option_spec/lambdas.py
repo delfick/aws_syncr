@@ -5,16 +5,20 @@ from aws_syncr.errors import BadTemplate
 from input_algorithms.spec_base import NotSpecified
 from input_algorithms.errors import BadSpecValue
 from input_algorithms import spec_base as sb
-from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
+from input_algorithms.spec_base import Spec
 from option_merge import MergedOptions
 from contextlib import contextmanager
 from textwrap import dedent
 import tempfile
+import logging
 import fnmatch
 import zipfile
+import json
 import six
 import os
+
+log = logging.getLogger("aws_syncr.option_spec.lambdas")
 
 class only_one_spec(sb.Spec):
     def setup(self, spec):
@@ -150,6 +154,9 @@ class Lambda(dictobj):
         , 'memory_size': "Max memory size for the function"
         }
 
+    def deploy(self, aws_syncr, amazon):
+        print(json.dumps(amazon.lambdas.deploy_function(self.name, self.code, self.location), indent=4))
+
 class S3Code(dictobj):
     fields = ["key", "bucket", "version"]
 
@@ -183,8 +190,9 @@ class InlineCode(dictobj):
 
     @contextmanager
     def zipfile(self):
-        with tempfile.NamedTemporaryFile() as fle:
+        with tempfile.NamedTemporaryFile(suffix=".zip") as fle:
             with self.code_in_file() as filename:
+                log.info("Making zipfile")
                 with zipfile.ZipFile(fle.name, "w") as zf:
                     zf.write(filename, self.arcname)
             yield fle.name
@@ -202,7 +210,8 @@ class DirectoryCode(dictobj):
 
     @contextmanager
     def zipfile(self):
-        with tempfile.NamedTemporaryFile() as fle:
+        with tempfile.NamedTemporaryFile(suffix=".zip") as fle:
+            log.info("Making zipfile")
             with zipfile.ZipFile(fle.name, "w") as zf:
                 for filename, arcname in self.files():
                     zf.write(filename, arcname)

@@ -18,7 +18,8 @@ class AmazonMixin:
                         print(heading)
                     print(document)
                     print("=" * 80)
-                raise BadAmazon(message, error_message=error.message, error_code=error.response["ResponseMetadata"]["HTTPStatusCode"], **info)
+                error_message = error.response["Error"]["Message"]
+                raise BadAmazon(message, error_message=error_message, error_code=error.response["ResponseMetadata"]["HTTPStatusCode"], **info)
             else:
                 raise
 

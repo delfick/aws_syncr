@@ -1,6 +1,7 @@
 from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.differ import Differ
 
+from contextlib import contextmanager
 import logging
 
 log = logging.getLogger("aws_syncr.amazon.lambdas")
@@ -18,6 +19,20 @@ class Lambdas(AmazonMixin, object):
         with self.ignore_missing():
             return self.amazon.session.client('lambda', location).get_function(FunctionName=function_name)
 
+    @contextmanager
+    def code_options(self, code):
+        options = {}
+        if code.s3_address:
+            options["Key"] = code.key
+            options["S3Bucket"] = code.bucket
+            if code.version is not NotSpecified:
+                options["S3ObjectVersion"] = code.version
+            yield options
+        else:
+            with code.zipfile() as location:
+                if location:
+                    yield {"ZipFile": open(location, 'rb').read()}
+
     def create_function(self, name, description, location, runtime, role, handler, timeout, memory_size, code):
         client = self.amazon.session.client('lambda', location)
         with self.catch_boto_400("Couldn't Make function", function=name):
@@ -28,17 +43,8 @@ class Lambdas(AmazonMixin, object):
                     , Publish = True
                     )
 
-                if code.s3_address:
-                    kwargs["Code"] = {}
-                    kwargs["Code"]["Key"] = code.key
-                    kwargs["Code"]["S3Bucket"] = code.bucket
-                    if code.version is not NotSpecified:
-                        kwargs["Code"]["S3ObjectVersion"] = code.version
-
-                with code.zipfile() as location:
-                    if location:
-                        kwargs["Code"] = {"ZipFile": location}
-
+                with code_options(code) as options:
+                    kwargs["Code"] = options
                     client.create_function(**kwargs)
 
     def modify_function(self, function_info, name, description, location, runtime, role, handler, timeout, memory_size, code):
@@ -59,4 +65,11 @@ class Lambdas(AmazonMixin, object):
             with self.catch_boto_400("Couldn't modify function", function=name):
                 for _ in self.change("M", "function", changes=changes, function=name):
                     client.update_function_configuration(**wanted)
+
+    def deploy_function(self, name, code, location):
+        client = self.amazon.session.client('lambda', location)
+        with self.code_options(code) as options:
+            for _ in self.change("D", "function", function=name):
+                with self.catch_boto_400("Couldn't deploy function", function=name):
+                    return client.update_function_code(FunctionName=name, **options)
 
