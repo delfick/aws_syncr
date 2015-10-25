@@ -36,6 +36,7 @@ class Collector(Collector):
 
     def prepare(self, configuration_folder, cli_args, environment):
         """Make a temporary configuration file from the files in our folder"""
+        self.configuration_folder = configuration_folder
         if not os.path.isdir(configuration_folder):
             raise BadOption("Specified configuration folder is not a directory!", wanted=configuration_folder)
         available = [os.path.join(configuration_folder, name) for name in os.listdir(configuration_folder)]
@@ -67,6 +68,7 @@ class Collector(Collector):
             { "$@": aws_syncr.get("extra", "")
             , "aws_syncr": aws_syncr
             , "templates": {}
+            , "config_folder": self.configuration_folder
             }
         , source = "<cli_args>"
         )
