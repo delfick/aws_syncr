@@ -60,3 +60,8 @@ def test_lambda(collector):
     amazon._validated = True
     aws_syncr = collector.configuration['aws_syncr']
     find_lambda_function(aws_syncr, collector.configuration).test(aws_syncr, amazon)
+
+@an_action
+def deploy_and_test_lambda(collector):
+    deploy_lambda(collector)
+    test_lambda(collector)
