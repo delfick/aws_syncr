@@ -72,59 +72,13 @@ describe TestCase, "Amazon":
         self.assertEqual(amazon.changes, False)
         self.assertEqual(type(amazon.session), boto3.session.Session)
 
-    it "gets all_roles from validate_account":
-        all_roles = mock.Mock(name="all_roles")
-        called = []
-        class sub(Amazon):
-            def validate_account(self):
-                called.append(1)
-                self._all_roles = all_roles
-
-        self.assertIs(sub("dev", {}).all_roles, all_roles)
-        self.assertEqual(called, [1])
-
-    it "gets all_users from validate_account":
-        all_users = mock.Mock(name="all_users")
-        called = []
-        class sub(Amazon):
-            def validate_account(self):
-                called.append(1)
-                self._all_users = all_users
-
-        self.assertIs(sub("dev", {}).all_users, all_users)
-        self.assertEqual(called, [1])
-
     describe "validate_account":
-        it "gets all roles and all users":
-            role_meta = mock.Mock(name="role_meta", data={"Arn": "arn:aws:iam::123456789123:role/blah"})
-            role1 = mock.Mock(name="role1", meta=role_meta)
-            iam_roles = [role1]
-
-            user1 = mock.Mock(name="user1")
-            iam_users = [user1]
-
-            iam_roles_manager = mock.Mock(name="iam_roles_manager", all=mock.Mock(name="all", return_value=iam_roles))
-            iam_users_manager = mock.Mock(name="iam_users_manager", all=mock.Mock(name="all", return_value=iam_users))
-            iam_resource = mock.Mock(name="iam_resource", roles=iam_roles_manager, users=iam_users_manager)
-
-            class sub(Amazon):
-                iam = mock.Mock(name="iam", resource=iam_resource)
-
-            instance = sub("dev", {"dev": "123456789123"})
-
-            assert not hasattr(instance, "_all_roles")
-            assert not hasattr(instance, "_all_users")
-            instance.validate_account()
-
-            self.assertEqual(instance._all_roles, iam_roles)
-            self.assertEqual(instance._all_users, iam_users)
-
         it "complains if arn in the first role isn't correct":
             role_meta = mock.Mock(name="role_meta", data={"Arn": "arn:aws:iam::123456789123:role/blah"})
             role1 = mock.Mock(name="role1", meta=role_meta)
             iam_roles = [role1]
 
-            iam_roles_manager = mock.Mock(name="iam_roles_manager", all=mock.Mock(name="all", return_value=iam_roles))
+            iam_roles_manager = mock.Mock(name="iam_roles_manager", limit=mock.Mock(name="limit", return_value=iam_roles))
             iam_resource = mock.Mock(name="iam_resource", roles=iam_roles_manager)
 
             class sub(Amazon):
@@ -142,8 +96,8 @@ describe TestCase, "Amazon":
             user1 = mock.Mock(name="user1")
             iam_users = [user1]
 
-            iam_roles_manager = mock.Mock(name="iam_roles_manager", all=mock.Mock(name="all", return_value=iam_roles))
-            iam_users_manager = mock.Mock(name="iam_users_manager", all=mock.Mock(name="all", return_value=iam_users))
+            iam_roles_manager = mock.Mock(name="iam_roles_manager", limit=mock.Mock(name="limit", return_value=iam_roles))
+            iam_users_manager = mock.Mock(name="iam_users_manager", limit=mock.Mock(name="limit", return_value=iam_users))
             iam_resource = mock.Mock(name="iam_resource", roles=iam_roles_manager, users=iam_users_manager)
 
             class sub(Amazon):
