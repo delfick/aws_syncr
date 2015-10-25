@@ -157,6 +157,9 @@ class Lambda(dictobj):
     def deploy(self, aws_syncr, amazon):
         print(json.dumps(amazon.lambdas.deploy_function(self.name, self.code, self.location), indent=4))
 
+    def test(self, aws_syncr, amazon):
+        print(json.dumps(amazon.lambdas.test_function(self.name, self.sample_event, self.location), indent=4))
+
 class S3Code(dictobj):
     fields = ["key", "bucket", "version"]
 

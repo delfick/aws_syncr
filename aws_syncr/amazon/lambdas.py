@@ -3,6 +3,8 @@ from aws_syncr.differ import Differ
 
 from contextlib import contextmanager
 import logging
+import base64
+import json
 
 log = logging.getLogger("aws_syncr.amazon.lambdas")
 
@@ -73,3 +75,12 @@ class Lambdas(AmazonMixin, object):
                 with self.catch_boto_400("Couldn't deploy function", function=name):
                     return client.update_function_code(FunctionName=name, **options)
 
+    def test_function(self, name, event, location):
+        client = self.amazon.session.client('lambda', location)
+        log.info("Invoking function %s", name)
+        res = client.invoke(FunctionName=name, InvocationType="RequestResponse", Payload=event, LogType="Tail")
+        res['Payload'] = json.loads(res['Payload'].read().decode('utf-8'))
+        if 'LogResult' in res:
+            print(base64.b64decode(res['LogResult']).decode('utf-8'))
+            del res['LogResult']
+        return res
