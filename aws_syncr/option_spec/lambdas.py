@@ -125,7 +125,7 @@ class lambdas_spec(Spec):
             , runtime = sb.required(formatted_string)
             , location = sb.required(formatted_string)
             , description = formatted_string
-            , sample_event = sb.string_spec()
+            , sample_event = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
             , memory_size = sb.defaulted(divisible_by_spec(64), 128)
             ).normalise(meta, val)
 
@@ -158,7 +158,7 @@ class Lambda(dictobj):
         print(json.dumps(amazon.lambdas.deploy_function(self.name, self.code, self.location), indent=4))
 
     def test(self, aws_syncr, amazon):
-        print(json.dumps(amazon.lambdas.test_function(self.name, self.sample_event, self.location), indent=4))
+        print(json.dumps(amazon.lambdas.test_function(self.name, self.sample_event.as_dict(), self.location), indent=4))
 
 class S3Code(dictobj):
     fields = ["key", "bucket", "version"]

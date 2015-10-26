@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import logging
 import base64
 import json
+import six
 
 log = logging.getLogger("aws_syncr.amazon.lambdas")
 
@@ -77,6 +78,8 @@ class Lambdas(AmazonMixin, object):
     def test_function(self, name, event, location):
         client = self.amazon.session.client('lambda', location)
         log.info("Invoking function %s", name)
+        if not isinstance(event, six.string_types):
+            event = json.dumps(event)
         res = client.invoke(FunctionName=name, InvocationType="RequestResponse", Payload=event, LogType="Tail")
         res['Payload'] = json.loads(res['Payload'].read().decode('utf-8'))
         if 'LogResult' in res:
