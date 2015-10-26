@@ -28,6 +28,7 @@ class buckets_spec(Spec):
         deny_permission = sb.listof(resource_policy_dict(effect='Deny')).normalise(meta.at("deny_permission"), val.get("deny_permission", NotSpecified))
         allow_permission = sb.listof(resource_policy_dict(effect='Allow')).normalise(meta.at("allow_permission"), val.get("allow_permission", NotSpecified))
 
+        val = val.wrapped()
         val['permission'] = original_permission + deny_permission + allow_permission
         return sb.create_spec(Bucket
             , name = sb.overridden(bucket_name)

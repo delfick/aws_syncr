@@ -33,6 +33,7 @@ class role_spec(object):
         allow_to_assume_me = sb.listof(trust_dict("principal")).normalise(meta.at("allow_to_assume_me"), val.get("allow_to_assume_me", NotSpecified))
         disallow_to_assume_me = sb.listof(trust_dict("notprincipal")).normalise(meta.at("disallow_to_assume_me"), val.get("disallow_to_assume_me", NotSpecified))
 
+        val = val.wrapped()
         val['trust'] = allow_to_assume_me + disallow_to_assume_me
         val['permission'] = original_permission + deny_permission + allow_permission
         return sb.create_spec(Role
