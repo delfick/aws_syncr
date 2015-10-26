@@ -30,7 +30,7 @@ class App(App):
 
         task = args.aws_syncr_chosen_task
         if task not in available_actions:
-            raise BadTask("Unknown task", available=available_actions, wanted=task)
+            raise BadTask("Unknown task", available=list(available_actions.keys()), wanted=task)
 
         available_actions[task](collector)
 
