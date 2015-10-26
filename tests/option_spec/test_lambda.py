@@ -160,25 +160,25 @@ describe TestCase, "function_code_spec":
 
 describe TestCase, "lambdas_spec":
     it "overrides the function name with the key of the specification":
-        spec = {"name": "overridden", "location": "ap-southeast-2", "code": {"inline": "blah"}, "role": "arn", "runtime": "python2.7"}
+        spec = MergedOptions.using({"name": "overridden", "location": "ap-southeast-2", "code": {"inline": "blah"}, "role": "arn", "runtime": "python2.7"})
         everything = MergedOptions.using({"lambda": {"function": spec}})
         result = lambdas_spec().normalise(Meta(everything, [('lambda', ""), ('function', "")]), spec)
         self.assertEqual(result.name, "function")
 
     it "merges with a template":
-        spec = {"use": "blah", "code": {"inline": "codez"}, "timeout": 30, "runtime": "python2.7"}
+        spec = MergedOptions.using({"use": "blah", "code": {"inline": "codez"}, "timeout": 30, "runtime": "python2.7"})
         everything = MergedOptions.using({"lambda": {"function": spec}, "templates": {"blah": {"location": "ap-southeast-2", "role": "arn"}}})
         result = lambdas_spec().normalise(Meta(everything, []).at("lambda").at("function"), spec)
         self.assertEqual(result
             , Lambda(
                   name="function", location="ap-southeast-2", code={"code":"codez", "runtime":"python2.7"}, runtime="python2.7"
-                , handler="lambda_function.lambda_handler", memory_size=128, timeout=30, sample_event=''
+                , handler="lambda_function.lambda_handler", memory_size=128, timeout=30, sample_event=""
                 , description = '', role="arn"
                 )
             )
 
     it "must ensure memory_size is divisble by 64":
-        spec = {"name": "overridden", "location": "ap-southeast-2", "code": {"inline": "blah"}, "role": "arn", "runtime": "python2.7"}
+        spec = MergedOptions.using({"name": "overridden", "location": "ap-southeast-2", "code": {"inline": "blah"}, "role": "arn", "runtime": "python2.7"})
         spec["memory_size"] = 63
         everything = MergedOptions.using({"lambda": {"function": spec}})
         with self.fuzzyAssertRaisesError(BadSpecValue, "Value should be divisible by 64"):
@@ -376,7 +376,7 @@ describe TestCase, "__register__":
         self.meta = Meta(self.everything, [])
 
     it "works":
-        lambdas = __register__()['lambda'].normalise(self.meta.at("lambda"), self.everything['lambda'])
+        lambdas = __register__()['lambda'].normalise(self.meta.at("lambda"), self.everything['lambda'].wrapped())
         self.assertEqual(lambdas, Lambdas({
               "func1": Lambda(
                   name="func1", role="arn:etc:1", code=InlineCode("codez", "python2.7"), timeout=30, runtime="python2.7"

@@ -16,7 +16,7 @@ import mock
 
 describe TestCase, "buckets_spec":
     it "overrides the bucket name with the key of the specification":
-        spec = {"name": "overridden", "location": "ap-southeast-2"}
+        spec = MergedOptions.using({"name": "overridden", "location": "ap-southeast-2"})
         everything = {"buckets": {"my_bucket": spec}}
         result = buckets_spec().normalise(Meta(everything, [('buckets', ""), ('my_bucket', "")]), spec)
         self.assertEqual(result.name, "my_bucket")
@@ -30,7 +30,7 @@ describe TestCase, "buckets_spec":
             return {"path": path}
         meta.at.side_effect = meta_at
         with self.fuzzyAssertRaisesError(BadSpecValue, _errors=[BadSpecValue("Expected a value but got none", meta={"path": "location"})]):
-            buckets_spec().normalise(meta, {})
+            buckets_spec().normalise(meta, MergedOptions.using({}))
 
     it "merges with a template":
         everything = {"templates": {"blah": {"location": "ap-southeast-2"}}}
@@ -46,7 +46,7 @@ describe TestCase, "buckets_spec":
         p3, d3, r3 = mock.Mock(name="p3", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d3"), mock.Mock(name="r3")
         p4, d4, r4 = mock.Mock(name="p4", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d4"), mock.Mock(name="r4")
         p5, d5, r5 = mock.Mock(name="p5", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d5"), mock.Mock(name="r5")
-        spec = {"location": "ap-southeast-2", "permission": p1, "deny_permission": [p2, p3], "allow_permission": [p4, p5]}
+        spec = MergedOptions.using({"location": "ap-southeast-2", "permission": p1, "deny_permission": [p2, p3], "allow_permission": [p4, p5]})
 
         fake_resource_policy_dict = mock.Mock(name="resource_policy_dict")
         fake_resource_policy_dict.normalise.side_effect = lambda m, p: {p1:d1, p2:d2, p3:d3, p4:d4, p5:d5}[p]
@@ -61,7 +61,7 @@ describe TestCase, "buckets_spec":
         self.assertEqual(result.permission.statements, [r1, r2, r3, r4, r5])
 
     it "takes in tags of string to formatted string":
-        spec = {"location": "ap-southeast-2", "tags": {"lob": "{vars.lob}", "application": "{vars.application}"}}
+        spec = MergedOptions.using({"location": "ap-southeast-2", "tags": {"lob": "{vars.lob}", "application": "{vars.application}"}})
         everything = MergedOptions.using({"vars": {"application": "bob", "lob": "amazing"}, "buckets": spec})
         result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("stuff"), spec)
         self.assertEqual(result, Bucket(name="stuff", location="ap-southeast-2", permission=Document([]), tags={"lob": "amazing", "application": "bob"}))
@@ -116,7 +116,7 @@ describe TestCase, "Registering buckets":
 
     it "works":
         meta = Meta(self.everything, []).at("buckets")
-        result = __register__()["buckets"].normalise(meta, self.spec)
+        result = __register__()["buckets"].normalise(meta, MergedOptions.using(self.spec))
         stuff_permissions = Document([
               {'notresource': NotSpecified, 'resource': '*', 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': 's3:*', 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': {"AWS": 'arn:aws:iam::123456789123:role/hi'}}
             , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::stuff', 'arn:aws:s3:::stuff/*'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:Get*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:role/blah'}]}
@@ -140,7 +140,7 @@ describe TestCase, "Registering buckets":
 
     it "can be used to get policy documents":
         meta = Meta(self.everything, []).at("buckets")
-        result = __register__()["buckets"].normalise(meta, self.spec)
+        result = __register__()["buckets"].normalise(meta, MergedOptions.using(self.spec))
 
         stuff_statement = dedent("""
             {

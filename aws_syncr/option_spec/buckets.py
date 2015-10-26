@@ -24,9 +24,9 @@ class buckets_spec(Spec):
         formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
         bucket_name = meta.key_names()['_key_name_0']
 
-        original_permission = sb.listof(resource_policy_dict()).normalise(meta.at("permission"), val.get("permission", NotSpecified))
-        deny_permission = sb.listof(resource_policy_dict(effect='Deny')).normalise(meta.at("deny_permission"), val.get("deny_permission", NotSpecified))
-        allow_permission = sb.listof(resource_policy_dict(effect='Allow')).normalise(meta.at("allow_permission"), val.get("allow_permission", NotSpecified))
+        original_permission = sb.listof(resource_policy_dict()).normalise(meta.at("permission"), NotSpecified if "permission" not in val else val["permission"])
+        deny_permission = sb.listof(resource_policy_dict(effect='Deny')).normalise(meta.at("deny_permission"), NotSpecified if "deny_permission" not in val else val["deny_permission"])
+        allow_permission = sb.listof(resource_policy_dict(effect='Allow')).normalise(meta.at("allow_permission"), NotSpecified if "allow_permission" not in val else val["allow_permission"])
 
         val = val.wrapped()
         val['permission'] = original_permission + deny_permission + allow_permission

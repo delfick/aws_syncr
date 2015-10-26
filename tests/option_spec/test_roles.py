@@ -17,7 +17,7 @@ import mock
 
 describe TestCase, "role_spec":
     it "overrides the role name with the key of the specification":
-        spec = {"name": "overridden"}
+        spec = MergedOptions.using({"name": "overridden"})
         everything = {"roles": {"my_role": spec}}
         result = role_spec().normalise(Meta(everything, [('roles', ""), ('my_role', "")]), spec)
         self.assertEqual(result.name, "my_role")
@@ -36,7 +36,7 @@ describe TestCase, "role_spec":
         p3, d3, r3 = mock.Mock(name="p3", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d3"), mock.Mock(name="r3")
         p4, d4, r4 = mock.Mock(name="p4", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d4"), mock.Mock(name="r4")
         p5, d5, r5 = mock.Mock(name="p5", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d5"), mock.Mock(name="r5")
-        spec = {"permission": p1, "deny_permission": [p2, p3], "allow_permission": [p4, p5]}
+        spec = MergedOptions.using({"permission": p1, "deny_permission": [p2, p3], "allow_permission": [p4, p5]})
 
         fake_permission_dict = mock.Mock(name="resource_policy_dict")
         fake_permission_dict.normalise.side_effect = lambda m, p: {p1:d1, p2:d2, p3:d3, p4:d4, p5:d5}[p]
@@ -58,7 +58,7 @@ describe TestCase, "role_spec":
         p3, d3, r3 = mock.Mock(name="p3", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d3"), mock.Mock(name="r3")
         p4, d4, r4 = mock.Mock(name="p4", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d4"), mock.Mock(name="r4")
         p5, d5, r5 = mock.Mock(name="p5", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d5"), mock.Mock(name="r5")
-        spec = {"disallow_to_assume_me": [p2, p3], "allow_to_assume_me": [p4, p5]}
+        spec = MergedOptions.using({"disallow_to_assume_me": [p2, p3], "allow_to_assume_me": [p4, p5]})
 
         fake_trust_dict = mock.Mock(name="resource_policy_dict")
         fake_trust_dict.normalise.side_effect = lambda m, p: {p2:d2, p3:d3, p4:d4, p5:d5}[p]
@@ -153,7 +153,8 @@ describe TestCase, "__register__":
         self.everything = MergedOptions.using({"roles": self.spec, "accounts": {"dev": "123456789123", "stg": "445829383783"}, "aws_syncr": self.aws_syncr}, dont_prefix=[dictobj])
 
     it "works":
-        result = __register__()["roles"].normalise(Meta(self.everything, []).at("roles"), self.spec)
+        result = __register__()["roles"].normalise(Meta(self.everything, []).at("roles"), MergedOptions.using(self.spec))
+        print(result.items.keys())
 
         stuff_trust = [
               TrustStatement(sid=NotSpecified, effect=NotSpecified, action=NotSpecified, notaction=NotSpecified, resource=NotSpecified, notresource=NotSpecified, notprincipal=[{"AWS":"arn:aws:iam::445829383783:role/bamboo/agent"}], principal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
@@ -191,7 +192,7 @@ describe TestCase, "__register__":
 
     it "can be used to get trust statements":
         meta = Meta(self.everything, []).at("roles")
-        result = __register__()["roles"].normalise(meta, self.spec)
+        result = __register__()["roles"].normalise(meta, MergedOptions.using(self.spec))
 
         stuff_statement = dedent("""
             {
@@ -241,7 +242,7 @@ describe TestCase, "__register__":
 
     it "can be used to get permission statements":
         meta = Meta(self.everything, []).at("roles")
-        result = __register__()["roles"].normalise(meta, self.spec)
+        result = __register__()["roles"].normalise(meta, MergedOptions.using(self.spec))
 
         stuff_statement = dedent("""
             {

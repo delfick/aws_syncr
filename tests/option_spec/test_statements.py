@@ -326,7 +326,7 @@ describe TestCase, "policy_dict":
 
     it "returns as is if there is no effect":
         val = {"one": "one"}
-        self.assertIs(self.kls().normalise(self.meta, val), val)
+        self.assertEqual(self.kls().normalise(self.meta, val), val)
 
     it "complains if defaulted effect is being overridden":
         for val in ({"effect": "Deny"}, {"Effect": "Deny"}):

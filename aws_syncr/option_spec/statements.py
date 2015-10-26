@@ -4,6 +4,7 @@ from aws_syncr.errors import BadOption, BadPolicy
 from input_algorithms.spec_base import NotSpecified, apply_validators
 from input_algorithms import spec_base as sb, validators
 from input_algorithms.dictobj import dictobj
+from option_merge import MergedOptions
 from itertools import chain
 import six
 
@@ -85,6 +86,8 @@ class resource_policy_dict(sb.Spec):
         self.effect = effect
 
     def normalise(self, meta, val):
+        if isinstance(val, MergedOptions):
+            val = val.as_dict()
         val = sb.dictionary_spec().normalise(meta, val)
         if self.effect is not NotSpecified:
             if val.get('effect', self.effect) != self.effect or val.get('Effect', self.effect) != self.effect:
@@ -102,6 +105,8 @@ class trust_dict(sb.Spec):
         self.principal = principal
 
     def normalise(self, meta, val):
+        if isinstance(val, MergedOptions):
+            val = val.as_dict()
         val = sb.dictionary_spec().normalise(meta, val)
         if self.principal == "notprincipal":
             opposite = "principal"
