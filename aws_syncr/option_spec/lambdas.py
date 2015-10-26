@@ -125,7 +125,7 @@ class lambdas_spec(Spec):
             , runtime = sb.required(formatted_string)
             , location = sb.required(formatted_string)
             , description = formatted_string
-            , sample_event = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
+            , sample_event = sb.defaulted(sb.or_spec(sb.dictionary_spec(), sb.string_spec()), "")
             , memory_size = sb.defaulted(divisible_by_spec(64), 128)
             ).normalise(meta, val)
 
