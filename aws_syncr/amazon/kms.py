@@ -65,7 +65,7 @@ class Kms(AmazonMixin, object):
     def handle_grants(self, client, keyid, current_grants, name, new_grants):
         new = []
         revokable = []
-        match = lambda lst, grant: any(all(l[k] == grant[k] for k in grant if k not in ("GrantId", "IssuingAccount")) for l in lst)
+        match = lambda lst, grant: any(all(l[k] == grant.get(k) for k in grant if k not in ("GrantId", "IssuingAccount")) for l in lst)
 
         for grant in new_grants:
             if not match(current_grants, grant):
