@@ -45,7 +45,7 @@ class Kms(AmazonMixin, object):
                 with self.catch_boto_400("Couldn't create alias", alias=name, keyid=keyid):
                     client.create_alias(AliasName="alias/{0}".format(name), TargetKeyId=keyid)
 
-        self.handle_grants(client, [], name, grant)
+                self.handle_grants(client, keyid, [], name, grant)
 
     def modify_key(self, key_info, name, description, location, grant, policy):
         client = self.get_client(location)
@@ -66,7 +66,17 @@ class Kms(AmazonMixin, object):
         new = []
         revokable = []
         NotFound = type("NotFound", (object, ), {})
-        match = lambda lst, grant: any(all(l.get(k, NotFound) == grant.get(k) for k in grant if k not in ("GrantId", "IssuingAccount")) for l in lst)
+
+        def match(lst, grant):
+            for l in lst:
+                match = True
+                for k, v in grant.items():
+                    if k not in ("GrantId", "IssuingAccount"):
+                        if type(v) is list:
+                            if sorted(v) != sorted(l.get(k, [NotFound])):
+                                match = False
+                if match:
+                    return True
 
         for grant in new_grants:
             if not match(current_grants, grant):
