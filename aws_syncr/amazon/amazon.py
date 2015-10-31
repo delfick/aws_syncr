@@ -1,4 +1,5 @@
 from aws_syncr.errors import BadCredentials, AwsSyncrError
+from aws_syncr.amazon.apigateway import ApiGateway
 from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.amazon.lambdas import Lambdas
 from aws_syncr.amazon.iam import Iam
@@ -38,6 +39,7 @@ class Amazon(AmazonMixin, object):
     iam = ValidatingMemoizedProperty(Iam, "_iam")
     kms = ValidatingMemoizedProperty(Kms, "_kms")
     lambdas = ValidatingMemoizedProperty(Lambdas, "_lambdas")
+    apigateway = ValidatingMemoizedProperty(ApiGateway, "_apigateway")
 
     def validate_account(self):
         """Make sure we are able to connect to the right account"""

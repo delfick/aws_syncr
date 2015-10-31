@@ -15,7 +15,7 @@ setup(
       , "six"
       , "datadiff"
 
-      , "boto3==1.1.3"
+      , "boto3==1.2.1"
       , "pyYaml==3.10"
       ]
 

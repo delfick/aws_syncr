@@ -50,3 +50,6 @@ class InvalidGrant(AwsSyncrError):
 class BadImport(AwsSyncrError):
     desc = "Failed to import"
 
+class MissingDomain(AwsSyncrError):
+    desc = "Missing domain"
+

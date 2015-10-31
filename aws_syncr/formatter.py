@@ -49,6 +49,12 @@ class MergedOptionStringFormatter(StringFormatter):
     """
     def get_string(self, key):
         """Get a string from all_options"""
+
+        # Massive hack, lol
+        if key.startswith("lambda."):
+            key = "lambda.items.{0}".format(key[7:])
+
+        # Make sure key is in all_options
         if key not in self.all_options:
             kwargs = {}
             if len(self.chain) > 1:
