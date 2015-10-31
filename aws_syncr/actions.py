@@ -40,9 +40,10 @@ def sync(collector):
 
     # Do the sync
     for typ, thing in converted.items():
-        log.info("Syncing {0}".format(typ))
-        for name, item in thing.items.items():
-            thing.sync_one(aws_syncr, amazon, item)
+        if not aws_syncr.artifact or aws_syncr.artifact == typ:
+            log.info("Syncing {0}".format(typ))
+            for name, item in thing.items.items():
+                thing.sync_one(aws_syncr, amazon, item)
 
     if not amazon.changes:
         log.info("No changes were made!!")
