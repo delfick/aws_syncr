@@ -2,13 +2,18 @@ from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.lambdas import Lambda
 from aws_syncr.errors import BadTemplate
 
+from Crypto.Util import Counter
+from Crypto.Cipher import AES
+
 from input_algorithms.spec_base import NotSpecified
+from input_algorithms.validators import Validator
 from input_algorithms.errors import BadSpecValue
 from input_algorithms import spec_base as sb
 from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
 
 from option_merge import MergedOptions
+import base64
 import six
 
 formatted_string = lambda: sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter)
@@ -18,10 +23,41 @@ api_key_spec = lambda: sb.create_spec(ApiKey
     , stages = sb.listof(formatted_string())
     )
 
+class valid_secret(Validator):
+    def validate(self, meta, val):
+        val = sb.dictionary_spec().normalise(meta, val)
+        if 'plain' in val and 'kms' in val:
+            raise BadSpecValue("Please only specify plain or kms", got=list(val.keys()), meta=meta)
+
+        if 'plain' not in val and 'kms' not in val:
+            raise BadSpecValue("Please specify plain or kms", got=list(val.keys()), meta=meta)
+
+        if 'kms' in val and ('location' not in val or 'kms_data_key' not in val):
+            raise BadSpecValue("Please specify location and kms_data_key if you specify kms", got=list(val.keys()), meta=meta)
+
+        return val
+
+secret_spec = lambda: sb.create_spec(Secret
+    , valid_secret()
+
+    , plain = sb.optional_spec(formatted_string())
+    , kms = sb.optional_spec(formatted_string())
+    , location = sb.optional_spec(formatted_string())
+    , kms_data_key = sb.optional_spec(formatted_string())
+    )
+
+certificate_spec = lambda: sb.create_spec(Certificate
+    , name = sb.required(formatted_string())
+    , body = sb.required(secret_spec())
+    , key = sb.required(secret_spec())
+    , chain = sb.required(secret_spec())
+    )
+
 custom_domain_name_spec = lambda: sb.create_spec(DomainName
     , name = formatted_string()
     , stage = formatted_string()
     , base_path = sb.defaulted(formatted_string(), "(none)")
+    , certificate = sb.required(certificate_spec())
     )
 
 mapping_spec = lambda: sb.create_spec(Mapping
@@ -75,7 +111,7 @@ class ApiKey(dictobj):
     fields = ['name', 'stages']
 
 class DomainName(dictobj):
-    fields = ['name', 'stage', 'base_path']
+    fields = ['name', 'stage', 'base_path', 'certificate']
 
 class Mapping(dictobj):
     fields = ['content_type', 'template']
@@ -177,6 +213,21 @@ class gateways_spec(Spec):
             , domain_names = sb.listof(custom_domain_name_spec())
             , resources = sb.listof(gateway_resource_spec())
             ).normalise(meta, val)
+
+class Secret(dictobj):
+    fields = ['plain', 'kms', 'location', 'kms_data_key']
+
+    def resolve(self, amazon):
+        if self.plain is not NotSpecified:
+            return self.plain
+        else:
+            data_key = amazon.kms.decrypt(self.location, self.kms_data_key)
+            counter = Counter.new(128)
+            decryptor = AES.new(data_key[:32], AES.MODE_CTR, counter=counter)
+            return decryptor.decrypt(base64.b64decode(self.kms)).decode('utf-8')
+
+class Certificate(dictobj):
+    fields = ['name', 'body', 'key', 'chain']
 
 class Gateways(dictobj):
     fields = ['items']

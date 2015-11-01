@@ -1,5 +1,4 @@
 from aws_syncr.amazon.common import AmazonMixin
-from aws_syncr.errors import MissingDomain
 from aws_syncr.differ import Differ
 
 import boto3
@@ -66,12 +65,21 @@ class ApiGateway(AmazonMixin, object):
             self.modify_gateway(info, name, location, stages, resources, api_keys, domains)
 
     def modify_gateway(self, gateway_info, name, location, stages, resources, api_keys, domains):
+        client = self.client(location)
+
         current_domain_names = [domain['domainName'] for domain in gateway_info['domains']]
         missing = set(d.name for d in domains) - set(current_domain_names)
-        if missing:
-            raise MissingDomain("Please manually add the domains in the console (it requires giving ssl certificates)", missing=list(missing))
 
-        client = self.client(location)
+        for domain in missing:
+            with self.catch_boto_400("Couldn't Make domain", domain=domain):
+                for _ in self.change("+", "domain", domain=domain):
+                    certificate = [d for d in domains if d.name == domain][0].certificate
+                    client.create_domain_name(domainName=domain
+                        , certificateName = certificate.name
+                        , certificateBody = certificate.body.resolve(self.amazon)
+                        , certificateChain = certificate.chain.resolve(self.amazon)
+                        , certificatePrivateKey = certificate.key.resolve(self.amazon)
+                        )
 
         self.modify_stages(client, gateway_info, name, stages)
         self.modify_resources(client, gateway_info, location, name, resources)

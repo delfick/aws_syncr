@@ -2,6 +2,7 @@ from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.differ import Differ
 
 import logging
+import base64
 
 log = logging.getLogger("aws_syncr.amazon.kms")
 
@@ -15,6 +16,9 @@ class Kms(AmazonMixin, object):
         self.environment = environment
 
         self.clients = {}
+
+    def decrypt(self, location, secret):
+        return self.get_client(location).decrypt(CiphertextBlob=base64.b64decode(secret))['Plaintext']
 
     def get_client(self, location):
         if location not in self.clients:

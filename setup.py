@@ -17,6 +17,7 @@ setup(
 
       , "boto3==1.2.1"
       , "pyYaml==3.10"
+      , 'pycrypto==2.6.1'
       ]
 
     , extras_require =
