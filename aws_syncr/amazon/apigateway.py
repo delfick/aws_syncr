@@ -341,14 +341,14 @@ class ApiGateway(AmazonMixin, object):
                 with self.catch_boto_400("Couldn't remove domain name bindings", gateway=name):
                     for mapping in for_removal:
                         for _ in self.change("-", "domain name gateway association", gateway=name, base_path=mapping['basePath']):
-                            client.update_base_path_mapping(domainName=name, basePath=mapping['basePath']
+                            client.update_base_path_mapping(domainName=domain.name, basePath=mapping['basePath']
                                 , patchOperations = [{"op": "remove", "path": "/"}]
                                 )
 
                 with self.catch_boto_400("Couldn't add domain name bindings", gateway=name):
                     for mapping in for_addition:
                         for _ in self.change("+", "domain name gateway association", gateway=name, base_path=mapping['basePath'], stage=mapping['stage']):
-                            client.create_base_path_mapping(domainName=name, basePath=mapping['basePath'], restApiId=gateway_info['identity'], stage=mapping['stage'])
+                            client.create_base_path_mapping(domainName=domain.name, basePath=mapping['basePath'], restApiId=gateway_info['identity'], stage=mapping['stage'])
 
                 with self.catch_boto_400("Couldn't modify domain name bindings", gateway=name):
                     for old, new in for_modification:
@@ -362,4 +362,4 @@ class ApiGateway(AmazonMixin, object):
                             if old.get('stage') != new.get('stage'):
                                 operations.append({"op": "replace", "path": "/stage", "value": new['restApiId']})
 
-                            client.update_base_path_mapping(domainName=name, basePath=wanted['basePath'], patchOperations = operations)
+                            client.update_base_path_mapping(domainName=domain.name, basePath=wanted['basePath'], patchOperations = operations)
