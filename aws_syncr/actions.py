@@ -152,6 +152,9 @@ def deploy_gateway(collector):
     aws_syncr, amazon, stage, gateway = find_gateway(aws_syncr, configuration)
     gateway.deploy(aws_syncr, amazon, stage)
 
+    if not configuration['amazon'].changes:
+        log.info("No changes were made!!")
+
 @an_action
 def sync_and_deploy_gateway(collector):
     configuration = collector.configuration

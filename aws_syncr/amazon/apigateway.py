@@ -367,12 +367,14 @@ class ApiGateway(AmazonMixin, object):
 
     def deploy_stage(self, gateway_info, location, stage, description):
         client = self.client(location)
-        log.info("Deploying stage {0} for gateway {1}".format(stage, gateway_info['name']))
-        client.create_deployment(restApiId=gateway_info['identity'], stageName=stage, description=description)
-        print("https://{0}.execute-api.{1}.amazonaws.com/{2}".format(gateway_info['identity'], location, stage))
+        for _ in self.change("D", "Deployment", gateway=gateway_info['name'], stage=stage):
+            log.info("Deploying stage {0} for gateway {1}".format(stage, gateway_info['name']))
+            client.create_deployment(restApiId=gateway_info['identity'], stageName=stage, description=description)
+            print("https://{0}.execute-api.{1}.amazonaws.com/{2}".format(gateway_info['identity'], location, stage))
 
         previous_deployments = [s['deploymentId'] for s in gateway_info['stages'] if s['stageName'] == stage]
         if previous_deployments:
             for previous_deployment in previous_deployments:
-                client.delete_deployment(restApiId=gateway_info['identity'], deploymentId=previous_deployment)
+                for _ in self.change("-", "deployment", gateway=gateway_info['name'], deployment=previous_deployment):
+                    client.delete_deployment(restApiId=gateway_info['identity'], deploymentId=previous_deployment)
 
