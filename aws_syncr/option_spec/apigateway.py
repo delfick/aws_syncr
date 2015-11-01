@@ -61,12 +61,25 @@ class certificate_spec(Spec):
             , chain = sb.required(secret_spec())
             ).normalise(meta, val)
 
-custom_domain_name_spec = lambda: sb.create_spec(DomainName
-    , name = formatted_string()
-    , stage = formatted_string()
-    , base_path = sb.defaulted(formatted_string(), "(none)")
-    , certificate = sb.required(certificate_spec())
-    )
+class custom_domain_name_spec(Spec):
+    def setup(self, gateway_location):
+        self.gateway_location = gateway_location
+
+    def normalise(self, meta, val):
+        name = meta.key_names()["_key_name_0"]
+        result = sb.create_spec(DomainName
+            , name = sb.overridden(name)
+            , gateway_location = sb.overridden(self.gateway_location)
+            , zone = formatted_string()
+            , stage = formatted_string()
+            , base_path = sb.defaulted(formatted_string(), "(none)")
+            , certificate = sb.required(certificate_spec())
+            ).normalise(meta, val)
+
+        while result.zone and result.zone.endswith("."):
+            result.zone = result.zone[:-1]
+
+        return result
 
 mapping_spec = lambda: sb.create_spec(Mapping
     , content_type = sb.defaulted(formatted_string(), "application/json")
@@ -119,7 +132,11 @@ class ApiKey(dictobj):
     fields = ['name', 'stages']
 
 class DomainName(dictobj):
-    fields = ['name', 'stage', 'base_path', 'certificate']
+    fields = ['name', 'zone', 'stage', 'base_path', 'certificate', 'gateway_location']
+
+    @property
+    def full_name(self):
+        return "{0}.{1}".format(self.name, self.zone)
 
 class Mapping(dictobj):
     fields = ['content_type', 'template']
@@ -212,13 +229,14 @@ class gateways_spec(Spec):
             val = MergedOptions.using(meta.everything['templates'][template], val)
 
         gateway_name = meta.key_names()['_key_name_0']
+        gateway_location = formatted_string().normalise(meta.at('location'), val.get('location', ''))
 
         return sb.create_spec(Gateway
             , name = sb.overridden(gateway_name)
             , location = sb.required(formatted_string())
             , stages = sb.listof(formatted_string())
             , api_keys = sb.listof(api_key_spec())
-            , domain_names = sb.listof(custom_domain_name_spec())
+            , domain_names = sb.dictof(sb.string_spec(), custom_domain_name_spec(gateway_location))
             , resources = sb.listof(gateway_resource_spec())
             ).normalise(meta, val)
 
