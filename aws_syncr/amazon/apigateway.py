@@ -191,8 +191,52 @@ class ApiGateway(AmazonMixin, object):
                     , **new_kwargs
                     )
 
-    def modify_resource_method_integration_response(self, client, gateway_info, name, path, method, old_method, new_methods, resources_by_path):
-        pass
+    def modify_resource_method_integration_response(self, client, gateway_info, name, path, method, old_method, new_method, resources_by_path):
+        old_integration = old_method['methodIntegration'].get("integrationResponses", {})
+        wanted_integration = dict((str(s), v) for s, v in new_method.integration_response.responses.items())
+
+        for_removal = set(old_integration) - set(wanted_integration)
+        for_addition = set(wanted_integration) - set(old_integration)
+        for_modification = [s for s in wanted_integration if s in old_integration]
+
+        for status_code in for_removal:
+            for _ in self.change("-", "gateway resource integration response", gateway=name, resource=path, method=method, status_code=status_code):
+                resource_id = resources_by_path[path]['id']
+                client.delete_integration_response(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, statusCode=str(status_code))
+
+        for status_code in for_addition:
+            for _ in self.change("+", "gateway resource integration response", gateway=name, resource=path, method=method, status_code=status_code):
+                resource_id = resources_by_path[path]['id']
+                client.put_integration_response(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, statusCode=str(status_code)
+                    , responseTemplates = dict((m.content_type, m.template) for m in wanted_integration[status_code])
+                    )
+
+        for status_code in for_modification:
+            old = old_integration[status_code]['responseTemplates']
+            new = dict((m.content_type, m.template) for m in wanted_integration[status_code])
+            changes = list(Differ.compare_two_documents(old, new))
+
+            old = dict((ct.replace('/', '~1'), v) for ct, v in old.items())
+            new = dict((ct.replace('/', '~1'), v) for ct, v in new.items())
+
+            if changes:
+                for_removal = set(old) - set(new)
+                for_addition = set(new) - set(old)
+                for_mod = [content_type for content_type in new if content_type in old]
+                operations = []
+
+                for content_type in for_removal:
+                    operations.append({"op": "remove", "path": "/responseTemplates/{0}".format(content_type)})
+                for content_type in for_addition:
+                    operations.append({"op": "add", "path":"/responseTemplates/{0}".format(content_type), 'value': new[content_type]})
+                for content_type in for_mod:
+                    operations.append({"op": "replace", "path":"/responseTemplates/{0}".format(content_type), 'value': new[content_type]})
+
+                for _ in self.change("M", "gateway resource integration response", gateway=name, resource=path, method=method, status_code=status_code, changes=changes):
+                    resource_id = resources_by_path[path]['id']
+                    client.update_integration_response(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, statusCode=str(status_code)
+                        , patchOperations = operations
+                        )
 
     def modify_stages(self, client, gateway_info, name, stages):
         current_stages = [stage['stageName'] for stage in gateway_info['stages']]

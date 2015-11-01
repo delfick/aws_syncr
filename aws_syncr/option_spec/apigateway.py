@@ -129,7 +129,7 @@ class LambdaPostMethod(dictobj):
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
             , integration_request = MethodExecutionIntegrationRequest(integration_type="AWS", options=LambdaIntegrationOptions(function=self.function, location=self.location, account=self.account))
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
-            , integration_response = MethodExecutionIntegrationResponse(responses={200: self.mapping})
+            , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
             )
 
 class MockGetMethod(dictobj):
@@ -142,7 +142,7 @@ class MockGetMethod(dictobj):
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
             , integration_request = MethodExecutionIntegrationRequest(integration_type="MOCK")
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
-            , integration_response = MethodExecutionIntegrationResponse(responses={200: self.mapping})
+            , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
             )
 
 class GatewayMethods(dictobj):
