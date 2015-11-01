@@ -231,5 +231,5 @@ def encrypt_certificate(collector):
     dest['chain'] = {"kms": secrets['chain'], "location": region, "kms_data_key": encrypted_data_key}
 
     # And write to the file!
-    yaml.dump(current.as_dict(), open(source, 'w'), explicit_start=True, indent=2)
+    yaml.dump(current.as_dict(), open(source, 'w'), explicit_start=True, indent=2, default_flow_style=False)
 
