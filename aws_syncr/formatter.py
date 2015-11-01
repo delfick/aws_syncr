@@ -53,6 +53,8 @@ class MergedOptionStringFormatter(StringFormatter):
         # Massive hack, lol
         if key.startswith("lambda."):
             key = "lambda.items.{0}".format(key[7:])
+        if key.startswith("apigateway."):
+            key = "apigateway.items.{0}".format(key[11:])
 
         # Make sure key is in all_options
         if key not in self.all_options:

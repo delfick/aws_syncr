@@ -56,3 +56,5 @@ class UnknownStage(AwsSyncrError):
 class UnsyncedGateway(AwsSyncrError):
     desc = "Gateway not synced"
 
+class UnknownZone(AwsSyncrError):
+    desc = "Unknown zone"

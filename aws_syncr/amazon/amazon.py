@@ -2,6 +2,7 @@ from aws_syncr.errors import BadCredentials, AwsSyncrError
 from aws_syncr.amazon.apigateway import ApiGateway
 from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.amazon.lambdas import Lambdas
+from aws_syncr.amazon.route53 import Route53
 from aws_syncr.amazon.iam import Iam
 from aws_syncr.amazon.kms import Kms
 from aws_syncr.amazon.s3 import S3
@@ -39,6 +40,7 @@ class Amazon(AmazonMixin, object):
     iam = ValidatingMemoizedProperty(Iam, "_iam")
     kms = ValidatingMemoizedProperty(Kms, "_kms")
     lambdas = ValidatingMemoizedProperty(Lambdas, "_lambdas")
+    route53 = ValidatingMemoizedProperty(Route53, "_route53")
     apigateway = ValidatingMemoizedProperty(ApiGateway, "_apigateway")
 
     def validate_account(self):

@@ -138,6 +138,9 @@ class DomainName(dictobj):
     def full_name(self):
         return "{0}.{1}".format(self.name, self.zone)
 
+    def cname(self, amazon):
+        return amazon.apigateway.cname_for(self.gateway_location, self.full_name)
+
 class Mapping(dictobj):
     fields = ['content_type', 'template']
 

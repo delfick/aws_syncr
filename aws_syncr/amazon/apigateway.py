@@ -1,4 +1,5 @@
 from aws_syncr.amazon.common import AmazonMixin
+from aws_syncr.errors import AwsSyncrError
 from aws_syncr.differ import Differ
 
 import boto3
@@ -378,3 +379,7 @@ class ApiGateway(AmazonMixin, object):
                 for _ in self.change("-", "deployment", gateway=gateway_info['name'], deployment=previous_deployment):
                     client.delete_deployment(restApiId=gateway_info['identity'], deploymentId=previous_deployment)
 
+    def cname_for(self, gateway_location, record):
+        with self.ignore_missing():
+            return self.client(gateway_location).get_domain_name(domainName=record)['distributionDomainName']
+        raise AwsSyncrError("Please do a sync first!")
