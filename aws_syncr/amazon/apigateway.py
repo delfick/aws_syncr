@@ -26,12 +26,13 @@ class ApiGateway(AmazonMixin, object):
         for item in apis['items']:
             if item['name'] == gateway_name:
                 identity = item['id']
-                info = {"identity": identity}
+                info = {"identity": identity, 'name': gateway_name}
                 self.load_info(client, info)
                 return info
 
     def load_info(self, client, info):
         """Fill out information about the gateway"""
+        log.info("Finding information for gateway {0}".format(info['name']))
         if 'identity' in info:
             info['stages'] = client.get_stages(restApiId=info['identity'])['item']
             info['resources'] = client.get_resources(restApiId=info['identity'])['items']
@@ -363,3 +364,15 @@ class ApiGateway(AmazonMixin, object):
                                 operations.append({"op": "replace", "path": "/stage", "value": new['restApiId']})
 
                             client.update_base_path_mapping(domainName=domain.name, basePath=wanted['basePath'], patchOperations = operations)
+
+    def deploy_stage(self, gateway_info, location, stage, description):
+        client = self.client(location)
+        log.info("Deploying stage {0} for gateway {1}".format(stage, gateway_info['name']))
+        client.create_deployment(restApiId=gateway_info['identity'], stageName=stage, description=description)
+        print("https://{0}.execute-api.{1}.amazonaws.com/{2}".format(gateway_info['identity'], location, stage))
+
+        previous_deployments = [s['deploymentId'] for s in gateway_info['stages'] if s['stageName'] == stage]
+        if previous_deployments:
+            for previous_deployment in previous_deployments:
+                client.delete_deployment(restApiId=gateway_info['identity'], deploymentId=previous_deployment)
+

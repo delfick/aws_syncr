@@ -49,3 +49,10 @@ class InvalidGrant(AwsSyncrError):
 
 class BadImport(AwsSyncrError):
     desc = "Failed to import"
+
+class UnknownStage(AwsSyncrError):
+    desc = "Unknown stage"
+
+class UnsyncedGateway(AwsSyncrError):
+    desc = "Gateway not synced"
+

@@ -70,6 +70,12 @@ class App(App):
             , **defaults['--artifact']
             )
 
+        parser.add_argument("--stage"
+            , help = "Extra argument to be used as the stage for deploying an api gateway"
+            , dest = "aws_syncr_stage"
+            , default = ""
+            )
+
         return parser
 
 main = App.main

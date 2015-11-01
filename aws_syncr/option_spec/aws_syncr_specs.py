@@ -29,6 +29,7 @@ class AwsSyncr(dictobj):
           "debug": "Set debug capability"
         , "dry_run": "Whether to do a dry run or not"
         , "extra": "Sets the ``$@`` variable. Alternatively specify these after a ``--`` on the commandline"
+        , "stage": "Stage to deploy for an api gateway when deploy_gateway is used"
         , "location": "The location to base everything in"
         , "artifact": "Arbitrary argument"
         , "environment": "The environment to sync"
@@ -52,6 +53,7 @@ class AwsSyncrSpec(object):
         formatted_string = formatted(string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
         return create_spec(AwsSyncr
             , extra = defaulted(formatted_string, "")
+            , stage = defaulted(formatted_string, "")
             , debug = defaulted(boolean(), False)
             , dry_run = defaulted(boolean(), False)
             , location = defaulted(formatted_string, "ap-southeast-2")

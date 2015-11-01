@@ -66,3 +66,28 @@ def test_lambda(collector):
 def deploy_and_test_lambda(collector):
     deploy_lambda(collector)
     test_lambda(collector)
+
+@an_action
+def deploy_gateway(collector):
+    configuration = collector.configuration
+    amazon = configuration['amazon']
+    aws_syncr = configuration['aws_syncr']
+
+    stage = aws_syncr.stage
+    gateway = aws_syncr.artifact
+
+    if 'apigateway' not in configuration:
+        raise AwsSyncrError("Please define apigateway in your configuration before trying to deploy a gateway")
+
+    if not gateway:
+        raise AwsSyncrError("Please specify --artifact for the gateway function to deploy")
+
+    wanted = ['apigateway', gateway]
+    if wanted not in configuration:
+        raise AwsSyncrError("Couldn't find specified api gateway", available=list(configuration["apigateway"].items.keys()))
+    gateway = configuration['apigateway'].items[gateway]
+
+    if not stage:
+        raise AwsSyncrError("Please specify --stage", available=list(gateway.stage_names))
+
+    gateway.deploy(aws_syncr, amazon, stage)

@@ -1,6 +1,6 @@
+from aws_syncr.errors import BadTemplate, UnknownStage, UnsyncedGateway
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.lambdas import Lambda
-from aws_syncr.errors import BadTemplate
 
 from Crypto.Util import Counter
 from Crypto.Cipher import AES
@@ -249,6 +249,24 @@ class Gateway(dictobj):
         , "api_keys": "The api keys to associate with this gateway"
         , "domain_names": "The custom domain names to associate with the gateway"
         }
+
+    @property
+    def stage_names(self):
+        return list(self.stages)
+
+    def deploy(self, aws_syncr, amazon, stage):
+        if stage not in self.stage_names:
+            raise UnknownStage("Please specify a defined stage", available=self.stage_names)
+
+        gateway_info = amazon.apigateway.gateway_info(self.name, self.location)
+        if not gateway_info:
+            raise UnsyncedGateway("Please do a sync before trying to deploy your gateway!")
+
+        defined_stages = [stage['stageName'] for stage in gateway_info['stages']]
+        if stage not in defined_stages:
+            raise UnknownStage("Please do a sync before trying to deploy your gateway!", only_have=defined_stages)
+
+        amazon.apigateway.deploy_stage(gateway_info, self.location, stage, aws_syncr.extra)
 
 def __register__():
     return {"apigateway": sb.container_spec(Gateways, sb.dictof(sb.string_spec(), gateways_spec()))}
