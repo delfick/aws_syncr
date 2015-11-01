@@ -13,8 +13,11 @@ from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
 
 from option_merge import MergedOptions
+import logging
 import base64
 import six
+
+log = logging.getLogger("aws_syncr.option_spec.apigateway")
 
 formatted_string = lambda: sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter)
 
@@ -258,6 +261,7 @@ class Gateway(dictobj):
         if stage not in self.stage_names:
             raise UnknownStage("Please specify a defined stage", available=self.stage_names)
 
+        log.info("Finding information for gateway {0}".format(self.name))
         gateway_info = amazon.apigateway.gateway_info(self.name, self.location)
         if not gateway_info:
             raise UnsyncedGateway("Please do a sync before trying to deploy your gateway!")

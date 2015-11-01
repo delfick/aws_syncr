@@ -25,6 +25,28 @@ def find_lambda_function(aws_syncr, configuration):
 
     return configuration['lambda'].items[lambda_function]
 
+def find_gateway(aws_syncr, configuration):
+    amazon = configuration['amazon']
+
+    stage = aws_syncr.stage
+    gateway = aws_syncr.artifact
+
+    if 'apigateway' not in configuration:
+        raise AwsSyncrError("Please define apigateway in your configuration before trying to deploy a gateway")
+
+    if not gateway:
+        raise AwsSyncrError("Please specify --artifact for the gateway function to deploy")
+
+    wanted = ['apigateway', gateway]
+    if wanted not in configuration:
+        raise AwsSyncrError("Couldn't find specified api gateway", available=list(configuration["apigateway"].items.keys()))
+    gateway = configuration['apigateway'].items[gateway]
+
+    if not stage:
+        raise AwsSyncrError("Please specify --stage", available=list(gateway.stage_names))
+
+    return aws_syncr, amazon, stage, gateway
+
 @an_action
 def sync(collector):
     """Sync an environment"""
@@ -70,24 +92,20 @@ def deploy_and_test_lambda(collector):
 @an_action
 def deploy_gateway(collector):
     configuration = collector.configuration
-    amazon = configuration['amazon']
     aws_syncr = configuration['aws_syncr']
-
-    stage = aws_syncr.stage
-    gateway = aws_syncr.artifact
-
-    if 'apigateway' not in configuration:
-        raise AwsSyncrError("Please define apigateway in your configuration before trying to deploy a gateway")
-
-    if not gateway:
-        raise AwsSyncrError("Please specify --artifact for the gateway function to deploy")
-
-    wanted = ['apigateway', gateway]
-    if wanted not in configuration:
-        raise AwsSyncrError("Couldn't find specified api gateway", available=list(configuration["apigateway"].items.keys()))
-    gateway = configuration['apigateway'].items[gateway]
-
-    if not stage:
-        raise AwsSyncrError("Please specify --stage", available=list(gateway.stage_names))
-
+    aws_syncr, amazon, stage, gateway = find_gateway(aws_syncr, configuration)
     gateway.deploy(aws_syncr, amazon, stage)
+
+@an_action
+def sync_and_deploy_gateway(collector):
+    configuration = collector.configuration
+    aws_syncr = configuration['aws_syncr']
+    find_gateway(aws_syncr, configuration)
+
+    artifact = aws_syncr.artifact
+    aws_syncr.artifact = ""
+    sync(collector)
+
+    aws_syncr.artifact = artifact
+    deploy_gateway(collector)
+

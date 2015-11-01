@@ -32,7 +32,6 @@ class ApiGateway(AmazonMixin, object):
 
     def load_info(self, client, info):
         """Fill out information about the gateway"""
-        log.info("Finding information for gateway {0}".format(info['name']))
         if 'identity' in info:
             info['stages'] = client.get_stages(restApiId=info['identity'])['item']
             info['resources'] = client.get_resources(restApiId=info['identity'])['items']
