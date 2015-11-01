@@ -49,12 +49,17 @@ secret_spec = lambda: sb.create_spec(Secret
     , kms_data_key = sb.optional_spec(formatted_string())
     )
 
-certificate_spec = lambda: sb.create_spec(Certificate
-    , name = sb.required(formatted_string())
-    , body = sb.required(secret_spec())
-    , key = sb.required(secret_spec())
-    , chain = sb.required(secret_spec())
-    )
+class certificate_spec(Spec):
+    def normalise(self, meta, val):
+        if isinstance(val, six.string_types):
+            val = formatted_string().normalise(meta, val)
+
+        return sb.create_spec(Certificate
+            , name = sb.required(formatted_string())
+            , body = sb.required(secret_spec())
+            , key = sb.required(secret_spec())
+            , chain = sb.required(secret_spec())
+            ).normalise(meta, val)
 
 custom_domain_name_spec = lambda: sb.create_spec(DomainName
     , name = formatted_string()
