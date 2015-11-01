@@ -1,10 +1,19 @@
+from aws_syncr.filename_completer import filename_prompt, setup_completer
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.errors import AwsSyncrError
+from aws_syncr.errors import UserQuit
+
+from Crypto.Util import Counter
+from Crypto.Cipher import AES
 
 from option_merge import MergedOptions
+from six.moves import input
+import readline
 import logging
+import base64
 import yaml
 import six
+import os
 
 log = logging.getLogger("aws_syncr.actions")
 
@@ -159,6 +168,7 @@ def sync_and_deploy_gateway(collector):
 @an_action
 def encrypt_certificate(collector):
     configuration = collector.configuration
+    amazon = configuration['amazon']
     aws_syncr = configuration['aws_syncr']
     certificate = aws_syncr.artifact
 
@@ -183,8 +193,40 @@ def encrypt_certificate(collector):
     log.info("Gonna edit {0} in {1}".format(location, source))
     current = MergedOptions.using(yaml.load(open(source)))
     dest = current[location]
-    dest['body'] = {"kms": "", "location": "", "kms_data_key": ""}
-    dest['key'] = {"kms": "", "location": "", "kms_data_key": ""}
-    dest['chain'] = {"kms": "", "location": "", "kms_data_key": ""}
+
+    try:
+        key_id = input("Which kms key do you want to use? ")
+        region = input("What region is this key in? ")
+    except EOFError:
+        raise UserQuit()
+
+    # Make the filename completion work
+    setup_completer()
+
+    # Create the datakey to encrypt with
+    data_key = amazon.kms.generate_data_key(region, key_id)
+    plaintext_data_key = data_key["Plaintext"]
+    encrypted_data_key = base64.b64encode(data_key["CiphertextBlob"]).decode('utf-8')
+
+    # Encrypt our secrets
+    secrets = {}
+    for name, desc in (("body", "certificate's crt file"), ("key", "private key file"), ("chain", "certificate chain")):
+        location = None
+        while not location or not os.path.isfile(location):
+            location = os.path.expanduser(filename_prompt("Where is the {0}? ".format(desc)))
+            if not location or not os.path.isfile(location):
+                print("Please give a location to a file that exists!")
+
+        data = open(location).read()
+        counter = Counter.new(128)
+        encryptor = AES.new(plaintext_data_key[:32], AES.MODE_CTR, counter=counter)
+        secrets[name] = base64.b64encode(encryptor.encrypt(data)).decode('utf-8')
+
+    # Add in the encrypted values
+    dest['body'] = {"kms": secrets['body'], "location": region, "kms_data_key": encrypted_data_key}
+    dest['key'] = {"kms": secrets['key'], "location": region, "kms_data_key": encrypted_data_key}
+    dest['chain'] = {"kms": secrets['chain'], "location": region, "kms_data_key": encrypted_data_key}
+
+    # And write to the file!
     yaml.dump(current.as_dict(), open(source, 'w'), explicit_start=True, indent=2)
 

@@ -17,13 +17,16 @@ class Kms(AmazonMixin, object):
 
         self.clients = {}
 
-    def decrypt(self, location, secret):
-        return self.get_client(location).decrypt(CiphertextBlob=base64.b64decode(secret))['Plaintext']
-
     def get_client(self, location):
         if location not in self.clients:
             self.clients[location] = self.amazon.session.client('kms', location)
         return self.clients[location]
+
+    def decrypt(self, location, secret):
+        return self.get_client(location).decrypt(CiphertextBlob=base64.b64decode(secret))['Plaintext']
+
+    def generate_data_key(self, location, key_id):
+        return self.get_client(location).generate_data_key(KeyId=key_id, KeySpec="AES_256")
 
     def key_info(self, name, location):
         client = self.get_client(location)
