@@ -121,15 +121,16 @@ class Collector(Collector):
                 if hasattr(module, "__register__"):
                     registered.update(module.__register__())
 
-        configuration['__registered__'] = registered
-        for thing in ['aws_syncr', 'accounts', 'templates'] + list(registered.keys()):
+        configuration['__registered__'] = [name for _, name in sorted(registered.keys())]
+        by_name = dict((r[1], registered[r]) for r in registered)
+        for thing in ['aws_syncr', 'accounts', 'templates'] + list(by_name.keys()):
             def make_converter(thing):
                 def converter(p, v):
                     log.info("Converting %s", p)
                     meta = Meta(p.configuration, [(thing, "")])
                     configuration.converters.started(p)
-                    if thing in registered:
-                        return registered[thing].normalise(meta, v)
+                    if thing in by_name:
+                        return by_name[thing].normalise(meta, v)
                     else:
                         return getattr(aws_syncr_spec, "{0}_spec".format(thing)).normalise(meta, v)
                 return converter

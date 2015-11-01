@@ -60,5 +60,5 @@ class EncryptionKey(dictobj):
         }
 
 def __register__():
-    return {"encryption_keys": sb.container_spec(EncryptionKeys, sb.dictof(sb.string_spec(), encryption_keys_spec()))}
+    return {(10, "encryption_keys"): sb.container_spec(EncryptionKeys, sb.dictof(sb.string_spec(), encryption_keys_spec()))}
 

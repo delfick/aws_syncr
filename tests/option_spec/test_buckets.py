@@ -116,7 +116,7 @@ describe TestCase, "Registering buckets":
 
     it "works":
         meta = Meta(self.everything, []).at("buckets")
-        result = __register__()["buckets"].normalise(meta, MergedOptions.using(self.spec))
+        result = __register__()[(80, "buckets")].normalise(meta, MergedOptions.using(self.spec))
         stuff_permissions = Document([
               {'notresource': NotSpecified, 'resource': '*', 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': 's3:*', 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': {"AWS": 'arn:aws:iam::123456789123:role/hi'}}
             , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::stuff', 'arn:aws:s3:::stuff/*'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:Get*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:role/blah'}]}
@@ -140,7 +140,7 @@ describe TestCase, "Registering buckets":
 
     it "can be used to get policy documents":
         meta = Meta(self.everything, []).at("buckets")
-        result = __register__()["buckets"].normalise(meta, MergedOptions.using(self.spec))
+        result = __register__()[(80, "buckets")].normalise(meta, MergedOptions.using(self.spec))
 
         stuff_statement = dedent("""
             {

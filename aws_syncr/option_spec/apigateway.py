@@ -278,5 +278,5 @@ class Gateway(dictobj):
         amazon.apigateway.deploy_stage(gateway_info, self.location, stage, aws_syncr.extra)
 
 def __register__():
-    return {"apigateway": sb.container_spec(Gateways, sb.dictof(sb.string_spec(), gateways_spec()))}
+    return {(99, "apigateway"): sb.container_spec(Gateways, sb.dictof(sb.string_spec(), gateways_spec()))}
 

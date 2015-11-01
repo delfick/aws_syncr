@@ -153,7 +153,7 @@ describe TestCase, "__register__":
         self.everything = MergedOptions.using({"roles": self.spec, "accounts": {"dev": "123456789123", "stg": "445829383783"}, "aws_syncr": self.aws_syncr}, dont_prefix=[dictobj])
 
     it "works":
-        result = __register__()["roles"].normalise(Meta(self.everything, []).at("roles"), MergedOptions.using(self.spec))
+        result = __register__()[(21, "roles")].normalise(Meta(self.everything, []).at("roles"), MergedOptions.using(self.spec))
         print(result.items.keys())
 
         stuff_trust = [
@@ -192,7 +192,7 @@ describe TestCase, "__register__":
 
     it "can be used to get trust statements":
         meta = Meta(self.everything, []).at("roles")
-        result = __register__()["roles"].normalise(meta, MergedOptions.using(self.spec))
+        result = __register__()[(21, "roles")].normalise(meta, MergedOptions.using(self.spec))
 
         stuff_statement = dedent("""
             {
@@ -242,7 +242,7 @@ describe TestCase, "__register__":
 
     it "can be used to get permission statements":
         meta = Meta(self.everything, []).at("roles")
-        result = __register__()["roles"].normalise(meta, MergedOptions.using(self.spec))
+        result = __register__()[(21, "roles")].normalise(meta, MergedOptions.using(self.spec))
 
         stuff_statement = dedent("""
             {

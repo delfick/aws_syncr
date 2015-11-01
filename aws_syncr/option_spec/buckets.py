@@ -62,5 +62,5 @@ class Bucket(dictobj):
         }
 
 def __register__():
-    return {"buckets": sb.container_spec(Buckets, sb.dictof(sb.string_spec(), buckets_spec()))}
+    return {(80, "buckets"): sb.container_spec(Buckets, sb.dictof(sb.string_spec(), buckets_spec()))}
 

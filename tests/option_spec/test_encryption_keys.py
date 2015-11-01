@@ -119,7 +119,7 @@ describe TestCase, "__register__":
         key1_spec = {"location": "ap-southeast-2", "grant": {"grantee": {"iam": "role/bob"}, "operations": ["Decrypt"]}}
         key2_spec = {"location": "us-east-1", "grant": [{"grantee": {"iam": "assumed-role/tim"}, "operations": ["Encrypt", "GenerateDataKey"]}]}
         spec = {"key1": key1_spec, "key2": key2_spec}
-        result = __register__()["encryption_keys"].normalise(Meta(everything, []).at("encryption_keys"), spec)
+        result = __register__()[(10, "encryption_keys")].normalise(Meta(everything, []).at("encryption_keys"), spec)
 
         key1_expected = EncryptionKey(name="key1", location="ap-southeast-2", description="", admin_users=[]
             , grant=[GrantStatement(grantee=["arn:aws:iam::123456789123:role/bob"], operations=["Decrypt"], retiree=NotSpecified, constraints=NotSpecified, grant_tokens=NotSpecified)]

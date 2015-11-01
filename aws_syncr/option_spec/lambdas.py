@@ -221,5 +221,5 @@ class DirectoryCode(dictobj):
             yield fle.name
 
 def __register__():
-    return {"lambda": sb.container_spec(Lambdas, sb.dictof(sb.string_spec(), lambdas_spec()))}
+    return {(22, "lambda"): sb.container_spec(Lambdas, sb.dictof(sb.string_spec(), lambdas_spec()))}
 

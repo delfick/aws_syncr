@@ -376,7 +376,7 @@ describe TestCase, "__register__":
         self.meta = Meta(self.everything, [])
 
     it "works":
-        lambdas = __register__()['lambda'].normalise(self.meta.at("lambda"), self.everything['lambda'].wrapped())
+        lambdas = __register__()[(22, 'lambda')].normalise(self.meta.at("lambda"), self.everything['lambda'].wrapped())
         self.assertEqual(lambdas, Lambdas({
               "func1": Lambda(
                   name="func1", role="arn:etc:1", code=InlineCode("codez", "python2.7"), timeout=30, runtime="python2.7"
