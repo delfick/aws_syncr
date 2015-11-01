@@ -34,6 +34,7 @@ class post_lambda_spec(Spec):
         result = sb.create_spec(LambdaPostMethod
             , function = formatted_string()
             , location = formatted_string()
+            , account = sb.optional_spec(formatted_string())
             , require_api_key = sb.defaulted(sb.boolean(), False)
             , mapping = sb.defaulted(mapping_spec(), Mapping("application/json", "$input.json('$')"))
             ).normalise(meta, val)
@@ -86,7 +87,15 @@ class MethodExecutionRequest(dictobj):
     fields = ['require_api_key']
 
 class MethodExecutionIntegrationRequest(dictobj):
-    fields = ['function', 'location']
+    fields = ['integration_type', ('options', None)]
+
+    def put_kwargs(self, gateway_location, accounts, environment):
+        if self.options is None:
+            kwargs = {}
+        else:
+            kwargs = self.options.put_kwargs(gateway_location, accounts, environment)
+        kwargs['type'] = self.integration_type
+        return kwargs
 
 class MethodExecutionResponse(dictobj):
     fields = ['responses']
@@ -95,28 +104,43 @@ class MethodExecutionIntegrationResponse(dictobj):
     fields = ['responses']
 
 class LambdaIntegrationOptions(dictobj):
-    fields = ['function', 'location']
+    fields = ['function', 'location', 'account']
+
+    def put_kwargs(self, gateway_location, accounts, environment):
+        if self.account is NotSpecified:
+            account = accounts[environment]
+        else:
+            if self.account in accounts:
+                account = accounts[self.account]
+            else:
+                account = self.account
+
+        arn = "arn:aws:lambda:{0}:{1}:function:{2}".format(self.location, account, self.function)
+        uri = "arn:aws:apigateway:{0}:lambda:path/2015-03-31/functions/{1}/invocations".format(gateway_location, arn)
+        return {'uri': uri}
 
 class LambdaPostMethod(dictobj):
-    fields = ['function', 'location', 'require_api_key', 'mapping']
+    fields = ['function', 'location', 'account', 'require_api_key', 'mapping']
+    http_method = "POST"
 
     @property
     def resource_options(self):
         return ResourceOptions(
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
-            , integration_request = MethodExecutionIntegrationRequest(integration_type="lambda", options=LambdaIntegrationOptions(function=self.function, location=self.location))
+            , integration_request = MethodExecutionIntegrationRequest(integration_type="AWS", options=LambdaIntegrationOptions(function=self.function, location=self.location, account=self.account))
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
             , integration_response = MethodExecutionIntegrationResponse(responses={200: self.mapping})
             )
 
 class MockGetMethod(dictobj):
     fields = ['mapping', 'require_api_key']
+    http_method = "GET"
 
     @property
     def resource_options(self):
         return ResourceOptions(
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
-            , integration_request = MethodExecutionIntegrationRequest(integration_type="mock")
+            , integration_request = MethodExecutionIntegrationRequest(integration_type="MOCK")
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
             , integration_response = MethodExecutionIntegrationResponse(responses={200: self.mapping})
             )
@@ -126,6 +150,12 @@ class GatewayMethods(dictobj):
 
 class GatewayResource(dictobj):
     fields = ['name', 'methods']
+
+    @property
+    def method_options(self):
+        for key, val in self.methods.items():
+            if val is not NotSpecified:
+                yield val.http_method, val.resource_options
 
 class gateways_spec(Spec):
     def normalise(self, meta, val):

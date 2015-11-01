@@ -36,7 +36,14 @@ class ApiGateway(AmazonMixin, object):
         if 'identity' in info:
             info['stages'] = client.get_stages(restApiId=info['identity'])['item']
             info['resources'] = client.get_resources(restApiId=info['identity'])['items']
+            for resource in info['resources']:
+                for method in resource.get('resourceMethods', {}):
+                    resource['resourceMethods'][method] = client.get_method(restApiId=info['identity'], resourceId=resource['id'], httpMethod=method)
+
             info['deployment'] = client.get_deployments(restApiId=info['identity'])['items']
+        else:
+            for key in ('stages', 'resources', 'deployment'):
+                info[key] = []
 
         info['api_keys'] = client.get_api_keys()['items']
         info['domains'] = client.get_domain_names()['items']
@@ -65,11 +72,127 @@ class ApiGateway(AmazonMixin, object):
             raise MissingDomain("Please manually add the domains in the console (it requires giving ssl certificates)", missing=list(missing))
 
         client = self.client(location)
-        if 'identity' in gateway_info:
-            self.modify_stages(client, gateway_info, name, stages)
+
+        self.modify_stages(client, gateway_info, name, stages)
+        self.modify_resources(client, gateway_info, location, name, resources)
 
         self.modify_domains(client, gateway_info, name, domains)
         self.modify_api_keys(client, gateway_info, name, api_keys)
+
+    def modify_resources(self, client, gateway_info, location, name, resources):
+        current_resources = [r['path'] for r in gateway_info['resources']]
+        wanted_resources = [r.name for r in resources]
+
+        wanted_by_path = dict((r.name, r) for r in resources)
+        resources_by_path = dict((r['path'], r) for r in gateway_info['resources'])
+
+        for_removal = [key for key in list(set(current_resources) - set(wanted_resources)) if key != '/']
+        for_addition = [key for key in list(set(wanted_resources) - set(current_resources)) if key != '/']
+        for_modification = list(set(['/'] + [r for r in wanted_resources if r in current_resources] + list(for_addition)))
+
+        for path in for_removal:
+            with self.catch_boto_400("Couldn't remove resource", gateway=name, resource=path):
+                for _ in self.change("-", "gateway resource", gateway=name, resource=path):
+                    resource_id = resources_by_path[path]['id']
+                    client.delete_resource(restApiId=gateway_info['identity'], resourceId=resource_id)
+
+        for path in for_addition:
+            with self.catch_boto_400("Couldn't add resource", gateway=name, resource=path):
+                for _ in self.change("+", "gateway resource", gateway=name, resource=path):
+                    parent_id = resources_by_path['/']['id']
+                    while path and path.startswith("/"):
+                        path = path[1:]
+
+                    upto = ['']
+                    for part in path.split('/'):
+                        upto.append(part)
+                        if '/'.join(upto) not in resources_by_path:
+                            info = client.create_resource(restApiId=gateway_info['identity'], parentId=parent_id, pathPart=part)
+                            resources_by_path['/'.join(upto)] = info
+                            parent_id = info['id']
+                        else:
+                            parent_id = resources_by_path['/'.join(upto)]['id']
+
+        for path in for_modification:
+            wanted_methods = {}
+            if path in wanted_by_path:
+                wanted_methods = dict(wanted_by_path[path].method_options)
+            current_methods = resources_by_path[path].get('resourceMethods', {})
+            self.modify_resource_methods(client, gateway_info, location, name, path, current_methods, wanted_methods, resources_by_path)
+
+    def modify_resource_methods(self, client, gateway_info, location, name, path, old_methods, new_methods, resources_by_path):
+        for_removal = set(old_methods) - set(new_methods)
+        for_addition = set(new_methods) - set(old_methods)
+        for_modification = [method for method in new_methods if method in old_methods] + list(for_addition)
+
+        for method in for_removal:
+            with self.catch_boto_400("Couldn't remove method", gateway=name, resource=path, method=method):
+                for _ in self.change("-", "gateway resource method", gateway=name, resource=path, method=method):
+                    resource_id = resources_by_path[path]['id']
+                    client.delete_method(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method)
+
+        for method in for_addition:
+            with self.catch_boto_400("Couldn't add method", gateway=name, resource=path, method=method):
+                for _ in self.change("+", "gateway resource method", gateway=name, resource=path, method=method):
+                    resource_id = resources_by_path[path]['id']
+                    client.put_method(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method
+                        , apiKeyRequired=new_methods[method].method_request.require_api_key
+                        , authorizationType = "none"
+                        )
+
+        for method in for_modification:
+            with self.catch_boto_400("Couldn't modify method", gateway=name, resource=path, method=method):
+                if method in old_methods:
+                    if old_methods[method]['apiKeyRequired'] != new_methods[method].method_request.require_api_key:
+                        for _ in self.change("M", "gateway resource method", gateway=name, resource=path, method=method):
+                            resource_id = resources_by_path[path]['id']
+                            operations = [{"op": "replace", "path": "/apiKeyRequired", "value": str(new_methods[method].method_request.require_api_key)}]
+                            client.update_method(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, patchOperations=operations)
+
+                self.modify_resource_method_status_codes(client, gateway_info, name, path, method, old_methods.get(method), new_methods[method], resources_by_path)
+                self.modify_resource_method_integration(client, gateway_info, location, name, path, method, old_methods.get(method), new_methods[method], resources_by_path)
+                self.modify_resource_method_integration_response(client, gateway_info, name, path, method, old_methods.get(method), new_methods[method], resources_by_path)
+
+    def modify_resource_method_status_codes(self, client, gateway_info, name, path, method, old_method, new_method, resources_by_path):
+        old_status_codes = list(old_method.get('methodResponses', {}).keys())
+        new_status_codes = list(str(st) for st in new_method.method_response.responses.keys())
+
+        for_removal = set(old_status_codes) - set(new_status_codes)
+        for_addition = set(new_status_codes) - set(old_status_codes)
+
+        for status_code in for_removal:
+            for _ in self.change("-", "gateway resource method response", gateway=name, resource=path, method=method, status_code=status_code):
+                resource_id = resources_by_path[path]['id']
+                client.delete_method_response(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, statusCode=str(status_code))
+
+        for status_code in for_addition:
+            for _ in self.change("+", "gateway resource method response", gateway=name, resource=path, method=method, status_code=status_code):
+                resource_id = resources_by_path[path]['id']
+                client.put_method_response(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, statusCode=str(status_code)
+                    , responseParameters = {}
+                    )
+
+    def modify_resource_method_integration(self, client, gateway_info, location, name, path, method, old_method, new_method, resources_by_path):
+        old_integration = old_method.get('methodIntegration', {})
+        new_integration = new_method.integration_request
+
+        new_kwargs = new_integration.put_kwargs(location, self.accounts, self.environment)
+        old_kwargs = {} if not old_integration else {"type": old_integration["type"]}
+        if old_kwargs and old_kwargs['type'] == 'AWS':
+            old_kwargs['uri'] = old_integration['uri']
+        changes = list(Differ.compare_two_documents(old_kwargs, new_kwargs))
+
+        if changes:
+            symbol = "+" if not old_integration else 'M'
+            for _ in self.change(symbol, "gateway resource method integration request", gateway=name, resource=path, method=method, type=new_kwargs['type'], changes=changes):
+                resource_id = resources_by_path[path]['id']
+                client.put_integration(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method
+                    , integrationHttpMethod=method
+                    , **new_kwargs
+                    )
+
+    def modify_resource_method_integration_response(self, client, gateway_info, name, path, method, old_method, new_methods, resources_by_path):
+        pass
 
     def modify_stages(self, client, gateway_info, name, stages):
         current_stages = [stage['stageName'] for stage in gateway_info['stages']]
@@ -81,8 +204,13 @@ class ApiGateway(AmazonMixin, object):
                 for _ in self.change("-", "gateway stage", gateway=name, stage=stage):
                     client.delete_stage(restApiId=gateway_info['identity'], stageName=stage)
 
-        deployments = client.get_deployments(restApiId=gateway_info['identity'])['items']
-        stages = client.get_stages(restApiId=gateway_info['identity'])['item']
+        if 'identity' in gateway_info:
+            deployments = client.get_deployments(restApiId=gateway_info['identity'])['items']
+            stages = client.get_stages(restApiId=gateway_info['identity'])['item']
+        else:
+            stages = []
+            deployments = []
+
         stage_deployments = [stage['deploymentId'] for stage in stages]
         for_removal = [deployment['id'] for deployment in deployments if deployment['id'] not in stage_deployments]
         for deployment in for_removal:
