@@ -125,7 +125,8 @@ class ApiGateway(AmazonMixin, object):
             wanted_methods = {}
             if path in wanted_by_path:
                 wanted_methods = dict(wanted_by_path[path].method_options)
-            current_methods = resources_by_path[path].get('resourceMethods', {})
+
+            current_methods = resources_by_path.get(path, {}).get('resourceMethods', {})
             self.modify_resource_methods(client, gateway_info, location, name, path, current_methods, wanted_methods, resources_by_path)
 
     def modify_resource_methods(self, client, gateway_info, location, name, path, old_methods, new_methods, resources_by_path):
@@ -157,9 +158,9 @@ class ApiGateway(AmazonMixin, object):
                             operations = [{"op": "replace", "path": "/apiKeyRequired", "value": str(new_methods[method].method_request.require_api_key)}]
                             client.update_method(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, patchOperations=operations)
 
-                self.modify_resource_method_status_codes(client, gateway_info, name, path, method, old_methods.get(method), new_methods[method], resources_by_path)
-                self.modify_resource_method_integration(client, gateway_info, location, name, path, method, old_methods.get(method), new_methods[method], resources_by_path)
-                self.modify_resource_method_integration_response(client, gateway_info, name, path, method, old_methods.get(method), new_methods[method], resources_by_path)
+                self.modify_resource_method_status_codes(client, gateway_info, name, path, method, old_methods.get(method, {}), new_methods[method], resources_by_path)
+                self.modify_resource_method_integration(client, gateway_info, location, name, path, method, old_methods.get(method, {}), new_methods[method], resources_by_path)
+                self.modify_resource_method_integration_response(client, gateway_info, name, path, method, old_methods.get(method, {}), new_methods[method], resources_by_path)
 
     def modify_resource_method_status_codes(self, client, gateway_info, name, path, method, old_method, new_method, resources_by_path):
         old_status_codes = list(old_method.get('methodResponses', {}).keys())
@@ -200,7 +201,7 @@ class ApiGateway(AmazonMixin, object):
                     )
 
     def modify_resource_method_integration_response(self, client, gateway_info, name, path, method, old_method, new_method, resources_by_path):
-        old_integration = old_method['methodIntegration'].get("integrationResponses", {})
+        old_integration = old_method.get('methodIntegration', {}).get("integrationResponses", {})
         wanted_integration = dict((str(s), v) for s, v in new_method.integration_response.responses.items())
 
         for_removal = set(old_integration) - set(wanted_integration)
