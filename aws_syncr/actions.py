@@ -1,6 +1,10 @@
+from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.errors import AwsSyncrError
 
+from option_merge import MergedOptions
 import logging
+import yaml
+import six
 
 log = logging.getLogger("aws_syncr.actions")
 
@@ -46,6 +50,47 @@ def find_gateway(aws_syncr, configuration):
         raise AwsSyncrError("Please specify --stage", available=list(gateway.stage_names))
 
     return aws_syncr, amazon, stage, gateway
+
+def find_certificate_source(configuration, gateway, certificate):
+    source = configuration.source_for(['apigateway', gateway, 'domain_names'])
+    location = ["apigateway", gateway, 'domain_names']
+    domain_names = configuration.get(location, ignore_converters=True)
+
+    for domain in domain_names:
+        if 'name' in domain:
+            domain_name = MergedOptionStringFormatter(configuration, '.'.join(location + ['name']), value=domain.get('name')).format()
+            if domain_name == certificate:
+                if 'certificate' not in domain:
+                    domain['certificate'] = {}
+
+                var = domain['certificate']
+
+                class StickyChain(object):
+                    def __init__(self):
+                        self.lst = []
+
+                    def __add__(self, other):
+                        self.lst.extend(other)
+                        return self.lst
+
+                    def __contains__(self, item):
+                        return item in self.lst
+
+                    def __getitem__(self, index):
+                        return self.lst[index]
+                chain = StickyChain()
+
+                if isinstance(var, six.string_types):
+                    result = MergedOptionStringFormatter(configuration, '.'.join(location), value=var, chain=chain).format()
+                    if not isinstance(result, dict) and not isinstance(result, MergedOptions) and (not hasattr(result, 'is_dict') or not result.is_dict):
+                        raise AwsSyncrError("certificate should be pointing at a dictionary", got=result, chain=['.'.join(location)] + chain)
+
+                    location = chain[-1]
+                    source = configuration.source_for(location)
+                    for info in configuration.storage.get_info(location, ignore_converters=True):
+                        location = [str(part) for part in info.path.path]
+
+    return location, source
 
 @an_action
 def sync(collector):
@@ -110,4 +155,36 @@ def sync_and_deploy_gateway(collector):
 
     aws_syncr.artifact = artifact
     deploy_gateway(collector)
+
+@an_action
+def encrypt_certificate(collector):
+    configuration = collector.configuration
+    aws_syncr = configuration['aws_syncr']
+    certificate = aws_syncr.artifact
+
+    available = []
+
+    for gateway_name, gateway in configuration.get('apigateway', {}, ignore_converters=True).items():
+        for options in gateway.get("domain_names", []):
+            if "name" in options:
+                location = '.'.join(['apigateway', gateway_name, 'domain_names'])
+                formatter = MergedOptionStringFormatter(configuration, location, value=options['name'])
+                available.append((gateway_name, formatter.format()))
+
+    if not available:
+        raise AwsSyncrError("Please specify apigateway.<gateway_name>.domain_names.<domain_name>.name in the configuration")
+
+    if not certificate:
+        raise AwsSyncrError("Please specify certificate to encrypt with --artifact", available=[a[1] for a in available])
+
+    gateway = [name for name, cert in available if cert == certificate][0]
+    location, source = find_certificate_source(configuration, gateway, certificate)
+
+    log.info("Gonna edit {0} in {1}".format(location, source))
+    current = MergedOptions.using(yaml.load(open(source)))
+    dest = current[location]
+    dest['body'] = {"kms": "", "location": "", "kms_data_key": ""}
+    dest['key'] = {"kms": "", "location": "", "kms_data_key": ""}
+    dest['chain'] = {"kms": "", "location": "", "kms_data_key": ""}
+    yaml.dump(current.as_dict(), open(source, 'w'), explicit_start=True, indent=2)
 
