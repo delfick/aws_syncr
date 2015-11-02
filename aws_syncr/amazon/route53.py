@@ -53,18 +53,44 @@ class Route53(AmazonMixin, object):
         old = {}
         new = {"target": [{"Value": record_target}], 'type': record_type}
         changes = list(Differ.compare_two_documents(old, new))
+        hosted_zone_id = self.client.list_hosted_zones_by_name(DNSName=zone)['HostedZones'][0]['Id']
 
         with self.catch_boto_400("Couldn't add record", record=name, zone=zone):
-            for _ in self.change("+", "record", reocrd=name, zone=zone, changes=changes):
-                pass
+            for _ in self.change("+", "record", record=name, zone=zone, changes=changes):
+                self.client.change_resource_record_sets(HostedZoneId=hosted_zone_id
+                    , ChangeBatch = {"Changes": [
+                          { "Action": "CREATE"
+                          , "ResourceRecordSet":
+                            { "Name": "{0}.{1}".format(name, zone)
+                            , "Type": record_type
+                            , "TTL": 60
+                            , "ResourceRecords": new['target']
+                            }
+                          }
+                        ]
+                      }
+                    )
 
     def modify_route(self, route_info, name, zone, record_type, record_target):
         old = {"target": route_info['record']['ResourceRecords'], "type": route_info['record']['Type']}
         new = {"target": [{"Value": record_target}], 'type': record_type}
         changes = list(Differ.compare_two_documents(old, new))
+        hosted_zone_id = self.client.list_hosted_zones_by_name(DNSName=zone)['HostedZones'][0]['Id']
 
         if changes:
             with self.catch_boto_400("Couldn't change record", record=name, zone=zone):
-                for _ in self.change("M", "record", reocrd=name, zone=zone, changes=changes):
-                    pass
+                for _ in self.change("M", "record", record=name, zone=zone, changes=changes):
+                    self.client.change_resource_record_sets(HostedZoneId=hosted_zone_id
+                        , ChangeBatch = {"Changes": [
+                              { "Action": "UPSERT"
+                              , "ResourceRecordSet":
+                                { "Name": "{0}.{1}".format(name, zone)
+                                , "Type": record_type
+                                , "TTL": 60
+                                , "ResourceRecords": new['target']
+                                }
+                              }
+                            ]
+                          }
+                        )
 
