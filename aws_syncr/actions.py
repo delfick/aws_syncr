@@ -65,9 +65,10 @@ def find_certificate_source(configuration, gateway, certificate):
     location = ["apigateway", gateway, 'domain_names']
     domain_names = configuration.get(location, ignore_converters=True)
 
-    for domain in domain_names:
-        if 'name' in domain:
-            domain_name = MergedOptionStringFormatter(configuration, '.'.join(location + ['name']), value=domain.get('name')).format()
+    for name, domain in domain_names.items():
+        if 'zone' in domain:
+            zone = MergedOptionStringFormatter(configuration, '.'.join(location + ['zone']), value=domain.get('zone')).format()
+            domain_name = "{0}.{1}".format(name, zone)
             if domain_name == certificate:
                 if 'certificate' not in domain:
                     domain['certificate'] = {}
