@@ -82,8 +82,8 @@ class ApiGateway(AmazonMixin, object):
                         , certificatePrivateKey = certificate.key.resolve(self.amazon)
                         )
 
-        self.modify_stages(client, gateway_info, name, stages)
         self.modify_resources(client, gateway_info, location, name, resources)
+        self.modify_stages(client, gateway_info, name, stages)
 
         self.modify_domains(client, gateway_info, name, domains)
         self.modify_api_keys(client, gateway_info, name, api_keys)
