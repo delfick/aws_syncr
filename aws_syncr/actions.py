@@ -178,17 +178,20 @@ def encrypt_certificate(collector):
     available = []
 
     for gateway_name, gateway in configuration.get('apigateway', {}, ignore_converters=True).items():
-        for options in gateway.get("domain_names", []):
-            if "name" in options:
+        for name, options in gateway.get("domain_names", {}).items():
+            if "zone" in options:
                 location = '.'.join(['apigateway', gateway_name, 'domain_names'])
-                formatter = MergedOptionStringFormatter(configuration, location, value=options['name'])
-                available.append((gateway_name, formatter.format()))
+                formatter = MergedOptionStringFormatter(configuration, location, value=options['zone'])
+                available.append((gateway_name, "{0}.{1}".format(name, formatter.format())))
 
     if not available:
         raise AwsSyncrError("Please specify apigateway.<gateway_name>.domain_names.<domain_name>.name in the configuration")
 
     if not certificate:
         raise AwsSyncrError("Please specify certificate to encrypt with --artifact", available=[a[1] for a in available])
+
+    if certificate not in [a[1] for a in available]:
+        raise AwsSyncrError("Unknown certificate", available=[a[1] for a in available], got=certificate)
 
     gateway = [name for name, cert in available if cert == certificate][0]
     location, source = find_certificate_source(configuration, gateway, certificate)
