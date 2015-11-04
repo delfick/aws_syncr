@@ -6,6 +6,7 @@ import boto3
 
 import logging
 import json
+import os
 
 log = logging.getLogger("aws_syncr.amazon.iam")
 
@@ -115,3 +116,19 @@ class Iam(AmazonMixin, object):
             with self.catch_boto_400("Couldn't add role to an instance profile", role=name, instance_profile=role_name):
                 for _ in self.change("+", "instance_profile_role", profile=role_name, role=role_name):
                     self.resource.InstanceProfile(role_name).add_role(RoleName=role_name)
+
+    def assume_role_credentials(self, arn):
+        """Return the environment variables for an assumed role"""
+        log.info("Assuming role as %s", arn)
+
+        # Clear out empty values
+        for name in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SECURITY_TOKEN', 'AWS_SESSION_TOKEN']:
+            if name in os.environ and not os.environ[name]:
+                del os.environ[name]
+
+        sts = self.amazon.session.client("sts")
+        with self.catch_boto_400("Couldn't assume role", arn=arn):
+            creds = sts.assume_role(RoleArn=arn, RoleSessionName="aws_syncr")
+
+        del creds['Credentials']['Expiration']
+        return creds['Credentials']

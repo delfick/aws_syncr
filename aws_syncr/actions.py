@@ -13,6 +13,7 @@ import itertools
 import readline
 import logging
 import base64
+import shlex
 import yaml
 import six
 import os
@@ -265,4 +266,28 @@ def encrypt_certificate(collector):
 
     # And write to the file!
     yaml.dump(current.as_dict(), open(source, 'w'), explicit_start=True, indent=2, default_flow_style=False)
+
+@an_action
+def execute_as(collector):
+    """Execute a command (after the --) as an assumed role (specified by --artifact)"""
+    # Gonna assume role anyway...
+    collector.configuration['amazon']._validated = True
+
+    # Find the arn we want to assume
+    account_id = collector.configuration['accounts'][collector.configuration['aws_syncr'].environment]
+    arn = "arn:aws:iam::{0}:role/{1}".format(account_id, collector.configuration['aws_syncr'].artifact)
+
+    # Determine the command to run
+    parts = shlex.split(collector.configuration["aws_syncr"].extra)
+    if not parts:
+        suggestion = " ".join(sys.argv) + " -- /path/to/command_to_run"
+        msg = "No command was provided. Try something like:\n\t\t{0}".format(suggestion)
+        raise AwsSyncrError(msg)
+
+    # Get our aws credentials environment variables from the assumed role
+    env = dict(os.environ)
+    env.update(collector.configuration['amazon'].iam.assume_role_credentials(arn))
+
+    # Turn into the command we want to execute
+    os.execvpe(parts[0], parts, env)
 
