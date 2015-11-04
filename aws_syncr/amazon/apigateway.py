@@ -297,7 +297,7 @@ class ApiGateway(AmazonMixin, object):
         for keyname in for_modification:
             with self.catch_boto_400("Couldn't modify api keys", api_key=keyname):
                 api_key = [api_key for api_key in api_keys if api_key.name == keyname][0]
-                old_api_key = [api_key for api_key in gateway_info['api_keys'] if api_key['name'] == keyname][0]
+                old_api_key = [ak for ak in gateway_info['api_keys'] if api_key['name'] == keyname][0]
                 other_api_stages = [key for key in old_api_key['stageKeys'] if key[:key.find('/')] != gateway_info['identity']]
 
                 operations = []
