@@ -130,5 +130,10 @@ class Iam(AmazonMixin, object):
         with self.catch_boto_400("Couldn't assume role", arn=arn):
             creds = sts.assume_role(RoleArn=arn, RoleSessionName="aws_syncr")
 
-        del creds['Credentials']['Expiration']
-        return creds['Credentials']
+        return {
+              'AWS_ACCESS_KEY_ID': creds["Credentials"]["AccessKeyId"]
+            , 'AWS_SECRET_ACCESS_KEY': creds["Credentials"]["SecretAccessKey"]
+            , 'AWS_SECURITY_TOKEN': creds["Credentials"]["SessionToken"]
+            , 'AWS_SESSION_TOKEN': creds["Credentials"]["SessionToken"]
+            }
+
