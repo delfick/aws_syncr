@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import logging
 import base64
 import json
+import uuid
 import six
 
 log = logging.getLogger("aws_syncr.amazon.lambdas")
@@ -86,3 +87,45 @@ class Lambdas(AmazonMixin, object):
             print(base64.b64decode(res['LogResult']).decode('utf-8'))
             del res['LogResult']
         return res
+
+    def modify_resource_policy_for_gateway(self, function_arn, function_location, gateway_arn, gateway_name):
+        lambda_client = self.amazon.session.client("lambda", function_location)
+        policy = lambda_client.get_policy(FunctionName = function_arn)["Policy"]
+        policy = json.loads(policy)
+        statements = policy.get("Statement", [])
+
+        current_apigateway_statements = []
+
+        wanted = {'Resource': function_arn, 'Effect': 'Allow',  'Action': 'lambda:InvokeFunction',  'Principal': {'Service': 'apigateway.amazonaws.com'}}
+        for statement in statements:
+            if all(wanted[key] == statement[key] for key in wanted):
+                current_apigateway_statements.append(statement)
+
+        for current_apigateway_statement in current_apigateway_statements:
+            if current_apigateway_statement.get("Condition", {}).get("ArnLike", {}).get("AWS:SourceArn") == gateway_arn:
+                # Our work here is done, no changes to make
+                return
+
+        # At this point, we have no statement allowing our gateway to invoke our lambda function
+        # So let's add a new statement!!!
+        new_statement = wanted
+        new_statement["Condition"] = {"ArnLike": { 'AWS:SourceArn' : gateway_arn } }
+
+        # Make a copy of the statements with our new statement
+        new_statements = list(statements)
+        new_statements.append(new_statement)
+
+        # Show the differences to the user
+        changes = list(Differ.compare_two_documents(statements, new_statements))
+        if changes:
+            function_name = function_arn.split(":")[-1]
+            for _ in self.change("M", "Lambda resource policy", gateway=gateway_name, function=function_name, changes=changes):
+                lambda_client.add_permission(
+                      FunctionName=function_name
+                    , StatementId = str(uuid.uuid1())
+                    , Action = new_statement["Action"]
+                    , Principal = new_statement["Principal"]["Service"]
+                    , SourceArn = gateway_arn
+                    , SourceAccount = gateway_arn.split(":")[4]
+                    )
+

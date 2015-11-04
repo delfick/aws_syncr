@@ -161,6 +161,14 @@ class MethodExecutionIntegrationRequest(dictobj):
         kwargs['type'] = self.integration_type
         return kwargs
 
+    def create_permissions(self, amazon, gateway_arn, gateway_name, accounts, environment):
+        if self.integration_type == "AWS":
+            self.options.create_permissions(amazon, gateway_arn, gateway_name, accounts, environment)
+
+    def announce_create_permissions(self, gateway_name, changer):
+        if self.integration_type == "AWS":
+            self.options.announce_create_permissions(gateway_name, changer)
+
 class MethodExecutionResponse(dictobj):
     fields = ['responses']
 
@@ -170,7 +178,7 @@ class MethodExecutionIntegrationResponse(dictobj):
 class LambdaIntegrationOptions(dictobj):
     fields = ['function', 'location', 'account']
 
-    def put_kwargs(self, gateway_location, accounts, environment):
+    def arn(self, accounts, environment):
         if self.account is NotSpecified:
             account = accounts[environment]
         else:
@@ -179,9 +187,21 @@ class LambdaIntegrationOptions(dictobj):
             else:
                 account = self.account
 
-        arn = "arn:aws:lambda:{0}:{1}:function:{2}".format(self.location, account, self.function)
+        return "arn:aws:lambda:{0}:{1}:function:{2}".format(self.location, account, self.function)
+
+    def put_kwargs(self, gateway_location, accounts, environment):
+        arn = self.arn(accounts, environment)
         uri = "arn:aws:apigateway:{0}:lambda:path/2015-03-31/functions/{1}/invocations".format(gateway_location, arn)
         return {'uri': uri}
+
+    def create_permissions(self, amazon, gateway_arn, gateway_name, accounts, environment):
+        arn = self.arn(accounts, environment)
+        amazon.lambdas.modify_resource_policy_for_gateway(arn, self.location, gateway_arn, gateway_name)
+
+    def announce_create_permissions(self, gateway_name, changer):
+        # Purely for announcing the change we want to make
+        for _ in changer("M", "Lambda resource policy", gateway=gateway_name, function=self.function):
+            pass
 
 class LambdaPostMethod(dictobj):
     fields = ['function', 'location', 'account', 'require_api_key', 'mapping']

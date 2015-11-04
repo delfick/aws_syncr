@@ -192,6 +192,14 @@ class ApiGateway(AmazonMixin, object):
             old_kwargs['uri'] = old_integration['uri']
         changes = list(Differ.compare_two_documents(old_kwargs, new_kwargs))
 
+        # Make sure our integration can be called by apigateway
+        if 'identity' in gateway_info:
+            arn = "arn:aws:execute-api:{0}:{1}:{2}/*/POST/*".format(location, self.account_id, gateway_info['identity'])
+            new_integration.create_permissions(self.amazon, arn, name, self.accounts, self.environment)
+        else:
+            # Only possible in dry-run
+            new_integration.announce_create_permissions(name, self.change)
+
         if changes:
             symbol = "+" if not old_integration else 'M'
             for _ in self.change(symbol, "gateway resource method integration request", gateway=name, resource=path, method=method, type=new_kwargs['type'], changes=changes):
@@ -298,11 +306,11 @@ class ApiGateway(AmazonMixin, object):
             with self.catch_boto_400("Couldn't modify api keys", api_key=keyname):
                 api_key = [api_key for api_key in api_keys if api_key.name == keyname][0]
                 old_api_key = [ak for ak in gateway_info['api_keys'] if api_key['name'] == keyname][0]
-                other_api_stages = [key for key in old_api_key['stageKeys'] if key[:key.find('/')] != gateway_info['identity']]
+                other_api_stages = [key for key in old_api_key['stageKeys'] if key[:key.find('/')] != gateway_info.get('identity')]
 
                 operations = []
 
-                new_stage_keys = ["{0}/{1}".format(gateway_info['identity'], key) for key in api_key.stages] + other_api_stages
+                new_stage_keys = ["{0}/{1}".format(gateway_info.get('identity'), key) for key in api_key.stages] + other_api_stages
                 changes = list(Differ.compare_two_documents(sorted(old_api_key['stageKeys']), sorted(new_stage_keys)))
 
                 if changes:
