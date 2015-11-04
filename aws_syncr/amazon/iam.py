@@ -18,6 +18,7 @@ class Iam(AmazonMixin, object):
         self.account_id = accounts[environment]
         self.environment = environment
 
+        self.client = self.amazon.session.client("iam")
         self.resource = self.amazon.session.resource('iam')
 
     def role_info(self, role_name):
@@ -29,7 +30,7 @@ class Iam(AmazonMixin, object):
     def create_role(self, name, trust_document, policies):
         with self.catch_boto_400("Couldn't Make role", "{0} assume document".format(name), trust_document, role=name):
             for _ in self.change("+", "role", role=name, document=trust_document):
-                self.resource.create_role(Path='/'.join(name.split('/')[:-1]), RoleName=name.split('/')[-1], AssumeRolePolicyDocument=trust_document)
+                self.resource.create_role(Path="/{0}/".format('/'.join(name.split('/')[:-1])), RoleName=name.split('/')[-1], AssumeRolePolicyDocument=trust_document)
 
         if policies:
             for policy_name, document in policies.items():
@@ -79,7 +80,11 @@ class Iam(AmazonMixin, object):
                     with self.catch_boto_400("Couldn't add policy document", "{0} - {1} policy document".format(name, policy), document, role=name, policy=policy):
                         symbol = "M" if changes else "+"
                         for _ in self.change(symbol, "role_policy", role=name, policy=policy, changes=changes, document=document):
-                            current_policies[policy].put(PolicyDocument=document)
+                            if policy in current_policies:
+                                current_policies[policy].put(PolicyDocument=document)
+                            else:
+                                self.client.put_role_policy(RoleName=name.split("/")[-1], PolicyName=policy, PolicyDocument=document)
+
 
     def make_instance_profile(self, name):
         role_name = name.split('/')[-1]
