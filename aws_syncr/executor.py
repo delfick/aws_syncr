@@ -17,7 +17,7 @@ class App(App):
     cli_categories = ['aws_syncr']
     cli_description = "Application that reads YAML and syncs definitions with amazon"
     cli_environment_defaults = {"AWS_SYNCR_CONFIG_FOLDER": ("--config-folder", '.')}
-    cli_positional_replacements = [('--environment'), ('--task', 'sync'), ('--artifact', "")]
+    cli_positional_replacements = [('--environment'), ('--task', 'list_tasks'), ('--artifact', "")]
 
     def execute(self, args, extra_args, cli_args, logging_handler, no_docker=False):
         cli_args["aws_syncr"]["extra"] = extra_args
@@ -25,7 +25,7 @@ class App(App):
 
         collector = Collector()
         collector.prepare(cli_args["aws_syncr"]["config_folder"], cli_args, cli_args['aws_syncr']['environment'])
-        if "term_colors" in collector.configuration:
+        if hasattr(collector, "configuration") and "term_colors" in collector.configuration:
             self.setup_logging_theme(logging_handler, colors=collector.configuration["term_colors"])
 
         task = args.aws_syncr_chosen_task

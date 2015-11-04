@@ -41,19 +41,21 @@ class Collector(Collector):
             raise BadOption("Specified configuration folder is not a directory!", wanted=configuration_folder)
         available = [os.path.join(configuration_folder, name) for name in os.listdir(configuration_folder)]
         available_environments = [os.path.abspath(path) for path in available if os.path.isdir(path)]
-        if os.path.abspath(environment) not in available_environments:
+
+        if environment and os.path.abspath(environment) not in available_environments:
             raise BadOption("Specified environment doesn't exist", available=available_environments, wanted=environment)
 
-        environment_files = [os.path.join(environment, "../accounts.yaml")]
-        for root, dirs, files in os.walk(environment):
-            environment_files.extend(os.path.join(root, filename) for filename in files)
+        if environment:
+            environment_files = [os.path.join(environment, "../accounts.yaml")]
+            for root, dirs, files in os.walk(environment):
+                environment_files.extend(os.path.join(root, filename) for filename in files)
 
-        with tempfile.NamedTemporaryFile() as fle:
-            contents = json.dumps({"includes": environment_files})
-            fle.write(contents.encode('utf-8'))
-            fle.flush()
-            cli_args['aws_syncr']['environment'] = os.path.split(environment)[-1]
-            super(Collector, self).prepare(fle.name, cli_args)
+            with tempfile.NamedTemporaryFile() as fle:
+                contents = json.dumps({"includes": environment_files})
+                fle.write(contents.encode('utf-8'))
+                fle.flush()
+                cli_args['aws_syncr']['environment'] = os.path.split(environment)[-1]
+                super(Collector, self).prepare(fle.name, cli_args)
 
     def find_missing_config(self, configuration):
         """Complain if we have no account information"""

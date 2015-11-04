@@ -8,6 +8,8 @@ from Crypto.Cipher import AES
 
 from option_merge import MergedOptions
 from six.moves import input
+from textwrap import dedent
+import itertools
 import readline
 import logging
 import base64
@@ -21,6 +23,7 @@ available_actions = {}
 
 def an_action(func):
     available_actions[func.__name__] = func
+    func.label = "Default"
     return func
 
 def find_lambda_function(aws_syncr, configuration):
@@ -101,6 +104,32 @@ def find_certificate_source(configuration, gateway, certificate):
                         location = [str(part) for part in info.path.path]
 
     return location, source
+
+@an_action
+def list_tasks(collector):
+    """List the available_tasks"""
+    print("Usage: aws_syncr <environment_folder> <task>")
+    print("")
+    print("Available environment folders to choose from are")
+    print("------------------------------------------------")
+    print("")
+    for environment in os.listdir(collector.configuration_folder):
+        location = os.path.join(collector.configuration_folder, environment)
+        if os.path.isdir(location) and not environment.startswith("."):
+            print("\t{0}".format(location))
+
+    print("")
+    print("Available tasks to choose from are:")
+    print("-----------------------------------")
+    print("")
+    keygetter = lambda item: item[1].label
+    tasks = sorted(available_actions.items(), key=keygetter)
+    sorted_tasks = sorted(list(tasks), key=lambda item: len(item[0]))
+    max_length = max(len(name) for name, _ in sorted_tasks)
+    for key, task in sorted_tasks:
+        desc = dedent(task.__doc__ or "").strip().split('\n')[0]
+        print("\t{0}{1} :-: {2}".format(" " * (max_length-len(key)), key, desc))
+    print("")
 
 @an_action
 def sync(collector):

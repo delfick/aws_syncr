@@ -36,7 +36,7 @@ To run it you have the following file structure::
 
 And then you run::
 
-    $ aws_syncr /path/to/<environment>
+    $ aws_syncr /path/to/<environment> sync
 
 For example, let's say you have a ``dev`` environment and a ``stg`` environment::
 
