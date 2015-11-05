@@ -132,12 +132,12 @@ class mock_resource_spec(Spec):
 
             , mapping = mapping_spec()
             , require_api_key = sb.defaulted(sb.boolean(), False)
-            )
+            ).normalise(meta, val)
 
 class gateway_methods_spec(Spec):
     def normalise(self, meta, val):
         # Make sure we have integration
-        integration_spec = sb.string_choice_spec(["aws", "mock"])
+        integration_spec = sb.required(sb.string_choice_spec(["aws", "mock"]))
         sb.set_options(integration=integration_spec).normalise(meta, val)
 
         # Determine the http method and resource name
