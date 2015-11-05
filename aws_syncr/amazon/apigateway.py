@@ -367,7 +367,7 @@ class ApiGateway(AmazonMixin, object):
                             operations = []
 
                             if old['restApiId'] != new['restApiId']:
-                                operations.append({"op": "replace", "path": "/restApiId", "value": new['restApiId']})
+                                operations.append({"op": "replace", "path": "/restapiId", "value": new['restApiId']})
 
                             if old.get('stage') != new.get('stage'):
                                 operations.append({"op": "replace", "path": "/stage", "value": new['restApiId']})

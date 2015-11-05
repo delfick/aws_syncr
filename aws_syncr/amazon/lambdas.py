@@ -90,8 +90,10 @@ class Lambdas(AmazonMixin, object):
 
     def modify_resource_policy_for_gateway(self, function_arn, function_location, gateway_arn, gateway_name):
         lambda_client = self.amazon.session.client("lambda", function_location)
-        policy = lambda_client.get_policy(FunctionName = function_arn)["Policy"]
-        policy = json.loads(policy)
+        policy = {}
+        with self.ignore_missing():
+            policy = lambda_client.get_policy(FunctionName = function_arn)["Policy"]
+            policy = json.loads(policy)
         statements = policy.get("Statement", [])
 
         current_apigateway_statements = []
@@ -126,6 +128,5 @@ class Lambdas(AmazonMixin, object):
                     , Action = new_statement["Action"]
                     , Principal = new_statement["Principal"]["Service"]
                     , SourceArn = gateway_arn
-                    , SourceAccount = gateway_arn.split(":")[4]
                     )
 
