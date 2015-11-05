@@ -86,9 +86,16 @@ mapping_spec = lambda: sb.create_spec(Mapping
     , template = sb.defaulted(sb.string_spec(), "$input.json('$')")
     )
 
-class post_lambda_spec(Spec):
+class aws_resource_spec(Spec):
+    def setup(self, method, resource_name):
+        self.method = method
+        self.resource_name = resource_name
+
     def normalise(self, meta, val):
-        result = sb.create_spec(LambdaPostMethod
+        result = sb.create_spec(LambdaMethod
+            , http_method = sb.overridden(self.method)
+            , resource_name = sb.overridden(self.resource_name)
+
             , function = formatted_string()
             , location = formatted_string()
             , account = sb.optional_spec(formatted_string())
@@ -113,19 +120,38 @@ class post_lambda_spec(Spec):
         result.location = location
         return result
 
-get_mock_spec = lambda : sb.create_spec(MockGetMethod
-    , mapping = mapping_spec()
-    , require_api_key = sb.defaulted(sb.boolean(), False)
-    )
+class mock_resource_spec(Spec):
+    def setup(self, method, resource_name):
+        self.method = method
+        self.resource_name = resource_name
 
-gateway_methods_spec = lambda: sb.create_spec(GatewayMethods
-    , POST_lambda = sb.optional_spec(post_lambda_spec())
-    , GET_mock = sb.optional_spec(get_mock_spec())
-    )
+    def normalise(self, meta, val):
+        return sb.create_spec(MockMethod
+            , http_method = sb.overridden(self.method)
+            , resource_name = sb.overridden(self.resource_name)
+
+            , mapping = mapping_spec()
+            , require_api_key = sb.defaulted(sb.boolean(), False)
+            )
+
+class gateway_methods_spec(Spec):
+    def normalise(self, meta, val):
+        # Make sure we have integration
+        integration_spec = sb.string_choice_spec(["aws", "mock"])
+        sb.set_options(integration=integration_spec).normalise(meta, val)
+
+        # Determine the http method and resource name
+        method = meta.key_names()["_key_name_0"]
+        resource_name = meta.key_names()["_key_name_2"]
+
+        # We have integration if no exception was raised
+        if val['integration'] == "aws":
+            return aws_resource_spec(method, resource_name).normalise(meta, val)
+        else:
+            return mock_resource_spec(method, resource_name).normalise(meta, val)
 
 gateway_resource_spec = lambda: sb.create_spec(GatewayResource
-    , name = formatted_string()
-    , methods = gateway_methods_spec()
+    , methods = sb.dictof(sb.string_spec(), gateway_methods_spec())
     )
 
 class ApiKey(dictobj):
@@ -176,7 +202,7 @@ class MethodExecutionIntegrationResponse(dictobj):
     fields = ['responses']
 
 class LambdaIntegrationOptions(dictobj):
-    fields = ['function', 'location', 'account']
+    fields = ['resource_name', 'function', 'location', 'account']
 
     def arn(self, accounts, environment):
         if self.account is NotSpecified:
@@ -196,6 +222,7 @@ class LambdaIntegrationOptions(dictobj):
 
     def create_permissions(self, amazon, gateway_arn, gateway_name, accounts, environment):
         arn = self.arn(accounts, environment)
+        gateway_arn = "{0}{1}".format(gateway_arn, self.resource_name)
         amazon.lambdas.modify_resource_policy_for_gateway(arn, self.location, gateway_arn, gateway_name)
 
     def announce_create_permissions(self, gateway_name, changer):
@@ -203,22 +230,20 @@ class LambdaIntegrationOptions(dictobj):
         for _ in changer("M", "Lambda resource policy", gateway=gateway_name, function=self.function):
             pass
 
-class LambdaPostMethod(dictobj):
-    fields = ['function', 'location', 'account', 'require_api_key', 'mapping']
-    http_method = "POST"
+class LambdaMethod(dictobj):
+    fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'require_api_key', 'mapping']
 
     @property
     def resource_options(self):
         return ResourceOptions(
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
-            , integration_request = MethodExecutionIntegrationRequest(integration_type="AWS", options=LambdaIntegrationOptions(function=self.function, location=self.location, account=self.account))
+            , integration_request = MethodExecutionIntegrationRequest(integration_type="AWS", options=LambdaIntegrationOptions(resource_name=self.resource_name, function=self.function, location=self.location, account=self.account))
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
             , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
             )
 
-class MockGetMethod(dictobj):
-    fields = ['mapping', 'require_api_key']
-    http_method = "GET"
+class MockMethod(dictobj):
+    fields = ['http_method', 'resource_name', 'mapping', 'require_api_key']
 
     @property
     def resource_options(self):
@@ -229,17 +254,13 @@ class MockGetMethod(dictobj):
             , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
             )
 
-class GatewayMethods(dictobj):
-    fields = ['POST_lambda', 'GET_mock']
-
 class GatewayResource(dictobj):
-    fields = ['name', 'methods']
+    fields = ['methods']
 
     @property
     def method_options(self):
         for key, val in self.methods.items():
-            if val is not NotSpecified:
-                yield val.http_method, val.resource_options
+            yield val.http_method, val.resource_options
 
 class gateways_spec(Spec):
     def normalise(self, meta, val):
@@ -260,7 +281,7 @@ class gateways_spec(Spec):
             , stages = sb.listof(formatted_string())
             , api_keys = sb.listof(api_key_spec())
             , domain_names = sb.dictof(sb.string_spec(), custom_domain_name_spec(gateway_location))
-            , resources = sb.listof(gateway_resource_spec())
+            , resources = sb.dictof(sb.string_spec(), gateway_resource_spec())
             ).normalise(meta, val)
 
 class Secret(dictobj):

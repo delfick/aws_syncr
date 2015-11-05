@@ -90,9 +90,8 @@ class ApiGateway(AmazonMixin, object):
 
     def modify_resources(self, client, gateway_info, location, name, resources):
         current_resources = [r['path'] for r in gateway_info['resources']]
-        wanted_resources = [r.name for r in resources]
+        wanted_resources = [r for r in resources]
 
-        wanted_by_path = dict((r.name, r) for r in resources)
         resources_by_path = dict((r['path'], r) for r in gateway_info['resources'])
 
         for_removal = [key for key in list(set(current_resources) - set(wanted_resources)) if key != '/']
@@ -124,8 +123,8 @@ class ApiGateway(AmazonMixin, object):
 
         for path in for_modification:
             wanted_methods = {}
-            if path in wanted_by_path:
-                wanted_methods = dict(wanted_by_path[path].method_options)
+            if path in resources:
+                wanted_methods = dict(resources[path].method_options)
 
             current_methods = resources_by_path.get(path, {}).get('resourceMethods', {})
             self.modify_resource_methods(client, gateway_info, location, name, path, current_methods, wanted_methods, resources_by_path)
@@ -194,7 +193,7 @@ class ApiGateway(AmazonMixin, object):
 
         # Make sure our integration can be called by apigateway
         if 'identity' in gateway_info:
-            arn = "arn:aws:execute-api:{0}:{1}:{2}/*/POST/*".format(location, self.account_id, gateway_info['identity'])
+            arn = "arn:aws:execute-api:{0}:{1}:{2}/*/POST".format(location, self.account_id, gateway_info['identity'])
             new_integration.create_permissions(self.amazon, arn, name, self.accounts, self.environment)
         else:
             # Only possible in dry-run
