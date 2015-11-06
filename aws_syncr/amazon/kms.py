@@ -82,6 +82,8 @@ class Kms(AmazonMixin, object):
                         if type(v) is list:
                             if sorted(v) != sorted(l.get(k, [NotFound])):
                                 match = False
+                        elif k in l and l.get(k) != v:
+                            match = False
                 if match:
                     return True
 
