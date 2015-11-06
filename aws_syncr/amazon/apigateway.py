@@ -194,7 +194,7 @@ class ApiGateway(AmazonMixin, object):
 
         # Make sure our integration can be called by apigateway
         if 'identity' in gateway_info:
-            arn = "arn:aws:execute-api:{0}:{1}:{2}/*/POST".format(location, self.account_id, gateway_info['identity'])
+            arn = "arn:aws:execute-api:{0}:{1}:{2}/*/".format(location, self.account_id, gateway_info['identity'])
             new_integration.create_permissions(self.amazon, arn, name, self.accounts, self.environment)
         else:
             # Only possible in dry-run

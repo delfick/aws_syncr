@@ -206,7 +206,7 @@ class MethodExecutionIntegrationResponse(dictobj):
     fields = ['responses']
 
 class LambdaIntegrationOptions(dictobj):
-    fields = ['resource_name', 'function', 'location', 'account']
+    fields = ['http_method', 'resource_name', 'function', 'location', 'account']
 
     def arn(self, accounts, environment):
         if self.account is NotSpecified:
@@ -226,7 +226,7 @@ class LambdaIntegrationOptions(dictobj):
 
     def create_permissions(self, amazon, gateway_arn, gateway_name, accounts, environment):
         arn = self.arn(accounts, environment)
-        gateway_arn = "{0}{1}".format(gateway_arn, self.resource_name)
+        gateway_arn = "{0}{1}{2}".format(gateway_arn, self.http_method, self.resource_name)
         amazon.lambdas.modify_resource_policy_for_gateway(arn, self.location, gateway_arn, gateway_name)
 
     def announce_create_permissions(self, gateway_name, changer):
@@ -241,7 +241,7 @@ class LambdaMethod(dictobj):
     def resource_options(self):
         return ResourceOptions(
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
-            , integration_request = MethodExecutionIntegrationRequest(integration_type="AWS", options=LambdaIntegrationOptions(resource_name=self.resource_name, function=self.function, location=self.location, account=self.account))
+            , integration_request = MethodExecutionIntegrationRequest(integration_type="AWS", options=LambdaIntegrationOptions(http_method=self.http_method, resource_name=self.resource_name, function=self.function, location=self.location, account=self.account))
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
             , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
             )
