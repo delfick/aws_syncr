@@ -38,7 +38,7 @@ class Iam(AmazonMixin, object):
                 if document:
                     with self.catch_boto_400("Couldn't add policy", "{0} - {1} Permission document".format(name, policy_name), document, role=name, policy_name=policy_name):
                         for _ in self.change("+", "role_policy", role=name, policy=policy_name, document=document):
-                            self.resource.RolePolicy(name, policy_name).put(PolicyDocument=document)
+                            self.resource.RolePolicy(name.split('/')[-1], policy_name).put(PolicyDocument=document)
 
     def modify_role(self, role_info, name, trust_document, policies):
         changes = list(Differ.compare_two_documents(json.dumps(role_info.assume_role_policy_document), trust_document))
