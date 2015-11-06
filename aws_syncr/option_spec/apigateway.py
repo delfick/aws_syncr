@@ -103,8 +103,14 @@ class aws_resource_spec(Spec):
             , account = sb.optional_spec(formatted_string())
             , require_api_key = sb.defaulted(sb.boolean(), False)
             , mapping = sb.defaulted(mapping_spec(), Mapping("application/json", "$input.json('$')"))
-            , sample_event = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
+            , sample_event = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
             ).normalise(meta, val)
+
+        if isinstance(result['sample_event'], six.string_types):
+            sample_event = result['sample_event']
+            if sample_event.startswith("{") and sample_event.endswith("}"):
+                sample_event = meta.everything[sample_event[1:-1]]
+                result['sample_event'] = sample_event
 
         function = result.function
         location = None

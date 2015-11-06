@@ -116,7 +116,7 @@ class lambdas_spec(Spec):
         formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
         function_name = meta.key_names()['_key_name_0']
 
-        return sb.create_spec(Lambda
+        val = sb.create_spec(Lambda
             , name = sb.overridden(function_name)
             , role = sb.required(only_one_spec(resource_spec("lambda", function_name, only=["iam"])))
             , code = sb.required(function_code_spec())
@@ -128,6 +128,14 @@ class lambdas_spec(Spec):
             , sample_event = sb.defaulted(sb.or_spec(sb.dictionary_spec(), sb.string_spec()), "")
             , memory_size = sb.defaulted(divisible_by_spec(64), 128)
             ).normalise(meta, val)
+
+        # Hack to make sample_event not appear as a MergedOptions
+        if isinstance(val['sample_event'], MergedOptions):
+            event = val['sample_event'].as_dict()
+            class SampleEvent(dictobj):
+                fields = list(event.keys())
+            val['sample_event'] = SampleEvent(**event)
+        return val
 
 class Lambdas(dictobj):
     fields = ['items']
@@ -158,10 +166,7 @@ class Lambda(dictobj):
         print(json.dumps(amazon.lambdas.deploy_function(self.name, self.code, self.location), indent=4))
 
     def test(self, aws_syncr, amazon):
-        sample_event = self.sample_event
-        if not isinstance(sample_event, six.string_types):
-            sample_event = sample_event.as_dict()
-        print(json.dumps(amazon.lambdas.test_function(self.name, sample_event, self.location), indent=4))
+        print(json.dumps(amazon.lambdas.test_function(self.name, self.sample_event, self.location), indent=4))
 
 class S3Code(dictobj):
     fields = ["key", "bucket", "version"]

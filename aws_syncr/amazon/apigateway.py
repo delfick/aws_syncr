@@ -7,6 +7,7 @@ import boto3
 
 import logging
 import json
+import six
 
 log = logging.getLogger("aws_syncr.amazon.apigateway")
 
@@ -395,9 +396,8 @@ class ApiGateway(AmazonMixin, object):
     def test_stage(self, gateway_info, location, stage, method, endpoint, sample_event):
         kwargs = {}
         if sample_event:
-            if hasattr(sample_event, 'as_dict'):
-                sample_event = sample_event.as_dict()
-            kwargs['data'] = sample_event
+            if not isinstance(sample_event, six.string_types):
+                kwargs['data'] = json.dumps(dict(sample_event.items()))
 
         # Find the url to use
         url = "https://{0}.execute-api.{1}.amazonaws.com/{2}".format(gateway_info['identity'], location, stage)
