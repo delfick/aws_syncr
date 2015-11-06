@@ -2,12 +2,14 @@ from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.errors import AwsSyncrError
 from aws_syncr.differ import Differ
 
+from input_algorithms.spec_base import NotSpecified
 import requests
 import boto3
 
 import logging
 import json
 import six
+import re
 
 log = logging.getLogger("aws_syncr.amazon.apigateway")
 
@@ -393,10 +395,10 @@ class ApiGateway(AmazonMixin, object):
             return self.client(gateway_location).get_domain_name(domainName=record)['distributionDomainName']
         raise AwsSyncrError("Please do a sync first!")
 
-    def test_stage(self, gateway_info, location, stage, method, endpoint, sample_event):
+    def test_stage(self, gateway_info, location, stage, method, endpoint, sample_event, desired_output_for_test):
         kwargs = {}
         if sample_event:
-            if not isinstance(sample_event, six.string_types):
+            if not isinstance(sample_event, six.string_types) and sample_event is not NotSpecified:
                 kwargs['data'] = json.dumps(dict(sample_event.items()))
 
         # Find the url to use
@@ -434,6 +436,19 @@ class ApiGateway(AmazonMixin, object):
             # Say we failed if status code isn't 200
             return False
         else:
-            # Say we succeeded otherwise
-            return True
+            # Say we succeeded if we meet the desired_output_for_test
+            if desired_output_for_test and desired_output_for_test is not NotSpecified:
+                if isinstance(desired_output_for_test, six.string_types):
+                    content = res.content.decode('utf-8')
+                    if not re.match(desired_output_for_test, content):
+                        print("content '{0}' does not match pattern '{1}'".format(content, desired_output_for_test))
+                        return False
+
+                else:
+                    content = json.loads(res.content.decode('utf-8'))
+                    if any(content[key] != val for key, val in desired_output_for_test.items()):
+                        print("Not all of the values match our desired output of '{0}'".format(desired_output_for_test))
+                        return False
+
+        return True
 

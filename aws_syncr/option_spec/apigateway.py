@@ -104,13 +104,15 @@ class aws_resource_spec(Spec):
             , require_api_key = sb.defaulted(sb.boolean(), False)
             , mapping = sb.defaulted(mapping_spec(), Mapping("application/json", "$input.json('$')"))
             , sample_event = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
+            , desired_output_for_test = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
             ).normalise(meta, val)
 
-        if isinstance(result['sample_event'], six.string_types):
-            sample_event = result['sample_event']
-            if sample_event.startswith("{") and sample_event.endswith("}"):
-                sample_event = meta.everything[sample_event[1:-1]]
-                result['sample_event'] = sample_event
+        for key in ('sample_event', 'desired_output_for_test'):
+            if isinstance(result[key], six.string_types):
+                v = result[key]
+                if v.startswith("{") and v.endswith("}"):
+                    v = meta.everything[v[1:-1]]
+                    result[key] = v
 
         function = result.function
         location = None
@@ -141,8 +143,16 @@ class mock_resource_spec(Spec):
 
             , mapping = mapping_spec()
             , require_api_key = sb.defaulted(sb.boolean(), False)
-            , sample_event = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
+            , sample_event = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
+            , desired_output_for_test = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
             ).normalise(meta, val)
+
+        for key in ('sample_event', 'desired_output_for_test'):
+            if isinstance(result[key], six.string_types):
+                v = result[key]
+                if v.startswith("{") and v.endswith("}"):
+                    v = meta.everything[v[1:-1]]
+                    result[key] = v
 
 class gateway_methods_spec(Spec):
     def normalise(self, meta, val):
@@ -241,7 +251,7 @@ class LambdaIntegrationOptions(dictobj):
             pass
 
 class LambdaMethod(dictobj):
-    fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'require_api_key', 'mapping', 'sample_event']
+    fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'require_api_key', 'mapping', 'sample_event', 'desired_output_for_test']
 
     @property
     def resource_options(self):
@@ -253,7 +263,7 @@ class LambdaMethod(dictobj):
             )
 
 class MockMethod(dictobj):
-    fields = ['http_method', 'resource_name', 'mapping', 'require_api_key', 'sample_event']
+    fields = ['http_method', 'resource_name', 'mapping', 'require_api_key', 'sample_event', 'desired_output_for_test']
 
     @property
     def resource_options(self):
@@ -360,7 +370,7 @@ class Gateway(dictobj):
         if method not in self.resources[endpoint].methods:
             raise UnknownEndpoint("Please specify a valid http_method for this endpoint", got=method, available=list(methods.keys()))
 
-        return self.resources[endpoint].methods[method].sample_event
+        return self.resources[endpoint].methods[method].sample_event, self.resources[endpoint].methods[method].desired_output_for_test
 
     def available_methods_and_endpoints(self):
         for endpoint, resource in self.resources.items():
@@ -390,10 +400,10 @@ class Gateway(dictobj):
             )))
 
         method, endpoint = endpoint.split(" ", 1)
-        sample_event = self.find_sample_event(amazon, method, endpoint)
+        sample_event, desired_output_for_test = self.find_sample_event(amazon, method, endpoint)
 
         self.validate_stage(amazon, stage)
-        amazon.apigateway.test_stage(self.gateway_info(amazon), self.location, stage, method, endpoint, sample_event)
+        return amazon.apigateway.test_stage(self.gateway_info(amazon), self.location, stage, method, endpoint, sample_event, desired_output_for_test)
 
 def __register__():
     return {(99, "apigateway"): sb.container_spec(Gateways, sb.dictof(sb.string_spec(), gateways_spec()))}

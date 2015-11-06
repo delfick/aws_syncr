@@ -171,7 +171,8 @@ def test_lambda(collector):
     amazon = collector.configuration['amazon']
     amazon._validated = True
     aws_syncr = collector.configuration['aws_syncr']
-    find_lambda_function(aws_syncr, collector.configuration).test(aws_syncr, amazon)
+    if not find_lambda_function(aws_syncr, collector.configuration).test(aws_syncr, amazon):
+        raise AwsSyncrError("Failed to test the lambda")
 
 @an_action
 def deploy_and_test_lambda(collector):
@@ -208,7 +209,7 @@ def test_gateway(collector):
     aws_syncr = configuration['aws_syncr']
     aws_syncr, amazon, stage, gateway = find_gateway(aws_syncr, configuration)
     if not gateway.test(aws_syncr, amazon, stage):
-        sys.exit(1)
+        raise AwsSyncrError("Failed to test the gateway")
 
 @an_action
 def test_all_gateway_endpoints(collector):
@@ -228,7 +229,7 @@ def test_all_gateway_endpoints(collector):
         print("")
 
     if failure:
-        sys.exit(1)
+        raise AwsSyncrError("Atleast one of the endpoints failed the test")
 
 @an_action
 def encrypt_certificate(collector):

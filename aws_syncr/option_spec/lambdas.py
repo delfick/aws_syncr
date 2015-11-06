@@ -16,6 +16,7 @@ import fnmatch
 import zipfile
 import json
 import six
+import re
 import os
 
 log = logging.getLogger("aws_syncr.option_spec.lambdas")
@@ -126,15 +127,17 @@ class lambdas_spec(Spec):
             , location = sb.required(formatted_string)
             , description = formatted_string
             , sample_event = sb.defaulted(sb.or_spec(sb.dictionary_spec(), sb.string_spec()), "")
+            , desired_output_for_test = sb.defaulted(sb.or_spec(sb.dictionary_spec(), sb.string_spec()), "")
             , memory_size = sb.defaulted(divisible_by_spec(64), 128)
             ).normalise(meta, val)
 
-        # Hack to make sample_event not appear as a MergedOptions
-        if isinstance(val['sample_event'], MergedOptions):
-            event = val['sample_event'].as_dict()
-            class SampleEvent(dictobj):
-                fields = list(event.keys())
-            val['sample_event'] = SampleEvent(**event)
+        # Hack to make sample_event and desired_output_for_test not appear as a MergedOptions
+        for key in ('sample_event', 'desired_output_for_test'):
+            if isinstance(val[key], MergedOptions):
+                v = val[key].as_dict()
+                class Arbritrary(dictobj):
+                    fields = list(v.keys())
+                val[key] = Arbritrary(**v)
         return val
 
 class Lambdas(dictobj):
@@ -159,6 +162,7 @@ class Lambda(dictobj):
         , 'location': "The region the function exists in"
         , 'description': "Description of the function"
         , 'sample_event': "A sample event to test with"
+        , 'desired_output_for_test': "Keys and values for the output of the test to consider it successful"
         , 'memory_size': "Max memory size for the function"
         }
 
@@ -166,7 +170,22 @@ class Lambda(dictobj):
         print(json.dumps(amazon.lambdas.deploy_function(self.name, self.code, self.location), indent=4))
 
     def test(self, aws_syncr, amazon):
-        print(json.dumps(amazon.lambdas.test_function(self.name, self.sample_event, self.location), indent=4))
+        output = amazon.lambdas.test_function(self.name, self.sample_event, self.location)
+        print(json.dumps(output, indent=4))
+
+        if desired_output_for_test and desired_output_for_test is not NotSpecified:
+            content = output['Payload']
+            if isinstance(desired_output_for_test, six.string_types):
+                if not re.match(desired_output_for_test, content):
+                    print("content '{0}' does not match pattern '{1}'".format(content, desired_output_for_test))
+                    return False
+
+            else:
+                if any(content[key] != val for key, val in desired_output_for_test.items()):
+                    print("Not all of the values match our desired output of '{0}'".format(desired_output_for_test))
+                    return False
+
+        return True
 
 class S3Code(dictobj):
     fields = ["key", "bucket", "version"]
