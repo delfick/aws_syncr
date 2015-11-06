@@ -15,6 +15,7 @@ import logging
 import base64
 import shlex
 import yaml
+import sys
 import six
 import os
 
@@ -52,7 +53,8 @@ def find_gateway(aws_syncr, configuration):
         raise AwsSyncrError("Please define apigateway in your configuration before trying to deploy a gateway")
 
     if not gateway:
-        raise AwsSyncrError("Please specify --artifact for the gateway function to deploy")
+        available = list(configuration['apigateway'].items.keys())
+        raise AwsSyncrError("Please specify --artifact for the gateway function to deploy", available=available)
 
     wanted = ['apigateway', gateway]
     if wanted not in configuration:
@@ -198,6 +200,35 @@ def sync_and_deploy_gateway(collector):
 
     aws_syncr.artifact = artifact
     deploy_gateway(collector)
+
+@an_action
+def test_gateway(collector):
+    collector.configuration['amazon']._validated = True
+    configuration = collector.configuration
+    aws_syncr = configuration['aws_syncr']
+    aws_syncr, amazon, stage, gateway = find_gateway(aws_syncr, configuration)
+    if not gateway.test(aws_syncr, amazon, stage):
+        sys.exit(1)
+
+@an_action
+def test_all_gateway_endpoints(collector):
+    collector.configuration['amazon']._validated = True
+    configuration = collector.configuration
+    aws_syncr = configuration['aws_syncr']
+    aws_syncr, amazon, stage, gateway = find_gateway(aws_syncr, configuration)
+
+    failure = False
+    for method, resource in gateway.available_methods_and_endpoints():
+        combination = "{0} {1}".format(method, resource)
+        print(combination)
+        print("=" * len(combination))
+        aws_syncr.extra = combination
+        if not gateway.test(aws_syncr, amazon, stage):
+            failure = True
+        print("")
+
+    if failure:
+        sys.exit(1)
 
 @an_action
 def encrypt_certificate(collector):

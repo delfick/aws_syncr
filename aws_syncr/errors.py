@@ -58,3 +58,7 @@ class UnsyncedGateway(AwsSyncrError):
 
 class UnknownZone(AwsSyncrError):
     desc = "Unknown zone"
+
+class UnknownEndpoint(AwsSyncrError):
+    desc = "Unknown endpoint"
+

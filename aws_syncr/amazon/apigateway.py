@@ -2,6 +2,7 @@ from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.errors import AwsSyncrError
 from aws_syncr.differ import Differ
 
+import requests
 import boto3
 
 import logging
@@ -390,3 +391,49 @@ class ApiGateway(AmazonMixin, object):
         with self.ignore_missing():
             return self.client(gateway_location).get_domain_name(domainName=record)['distributionDomainName']
         raise AwsSyncrError("Please do a sync first!")
+
+    def test_stage(self, gateway_info, location, stage, method, endpoint, sample_event):
+        kwargs = {}
+        if sample_event:
+            if hasattr(sample_event, 'as_dict'):
+                sample_event = sample_event.as_dict()
+            kwargs['data'] = sample_event
+
+        # Find the url to use
+        url = "https://{0}.execute-api.{1}.amazonaws.com/{2}".format(gateway_info['identity'], location, stage)
+        for domain in gateway_info['domains']:
+            if 'mappings' in domain:
+                for mapping in domain['mappings']:
+                    if mapping['restApiId'] == gateway_info['identity'] and mapping['stage'] == stage:
+                        url = "https://{0}".format(domain['domainName'])
+        url = "{0}{1}".format(url, endpoint)
+        log.info("{0}ing to {1}".format(method, url))
+
+        # Find an api-key
+        api_key = ""
+        stagekey = "{0}/{1}".format(gateway_info['identity'], stage)
+        for api_key in gateway_info['api_keys']:
+            if stagekey in api_key['stageKeys']:
+                log.info("Found an api key to use ({0})".format(api_key['name']))
+                api_key = api_key['id']
+                break
+
+        # Use the api key if it is required
+        resource = [r for r in gateway_info['resources'] if r['path'] == endpoint][0]
+        method_options = [o for m, o in resource['resourceMethods'].items() if m == method][0]
+        if method_options['apiKeyRequired']:
+            kwargs['headers'] = {'x-api-key': api_key}
+
+        # make the request
+        res = getattr(requests, method.lower())(url, **kwargs)
+
+        print("Got result with status_code={0}".format(res.status_code))
+        print(res.content.decode('utf-8'))
+
+        if res.status_code != 200:
+            # Say we failed if status code isn't 200
+            return False
+        else:
+            # Say we succeeded otherwise
+            return True
+

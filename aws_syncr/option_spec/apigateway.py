@@ -1,4 +1,4 @@
-from aws_syncr.errors import BadTemplate, UnknownStage, UnsyncedGateway
+from aws_syncr.errors import BadTemplate, UnknownStage, UnsyncedGateway, UnknownEndpoint, AwsSyncrError
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.lambdas import Lambda
 
@@ -13,8 +13,10 @@ from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
 
 from option_merge import MergedOptions
+from textwrap import dedent
 import logging
 import base64
+import sys
 import six
 
 log = logging.getLogger("aws_syncr.option_spec.apigateway")
@@ -101,6 +103,7 @@ class aws_resource_spec(Spec):
             , account = sb.optional_spec(formatted_string())
             , require_api_key = sb.defaulted(sb.boolean(), False)
             , mapping = sb.defaulted(mapping_spec(), Mapping("application/json", "$input.json('$')"))
+            , sample_event = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
             ).normalise(meta, val)
 
         function = result.function
@@ -132,6 +135,7 @@ class mock_resource_spec(Spec):
 
             , mapping = mapping_spec()
             , require_api_key = sb.defaulted(sb.boolean(), False)
+            , sample_event = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
             ).normalise(meta, val)
 
 class gateway_methods_spec(Spec):
@@ -231,7 +235,7 @@ class LambdaIntegrationOptions(dictobj):
             pass
 
 class LambdaMethod(dictobj):
-    fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'require_api_key', 'mapping']
+    fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'require_api_key', 'mapping', 'sample_event']
 
     @property
     def resource_options(self):
@@ -243,7 +247,7 @@ class LambdaMethod(dictobj):
             )
 
 class MockMethod(dictobj):
-    fields = ['http_method', 'resource_name', 'mapping', 'require_api_key']
+    fields = ['http_method', 'resource_name', 'mapping', 'require_api_key', 'sample_event']
 
     @property
     def resource_options(self):
@@ -324,20 +328,66 @@ class Gateway(dictobj):
     def stage_names(self):
         return list(self.stages)
 
-    def deploy(self, aws_syncr, amazon, stage):
+    def gateway_info(self, amazon):
+        if not getattr(self, "_gateway_info", None):
+            self._gateway_info = amazon.apigateway.gateway_info(self.name, self.location)
+        return self._gateway_info
+
+    def validate_stage(self, amazon, stage):
         if stage not in self.stage_names:
             raise UnknownStage("Please specify a defined stage", available=self.stage_names)
 
         log.info("Finding information for gateway {0}".format(self.name))
-        gateway_info = amazon.apigateway.gateway_info(self.name, self.location)
-        if not gateway_info:
+        if not self.gateway_info(amazon):
             raise UnsyncedGateway("Please do a sync before trying to deploy your gateway!")
 
-        defined_stages = [stage['stageName'] for stage in gateway_info['stages']]
+        defined_stages = [stage['stageName'] for stage in self.gateway_info(amazon)['stages']]
         if stage not in defined_stages:
             raise UnknownStage("Please do a sync before trying to deploy your gateway!", only_have=defined_stages)
 
-        amazon.apigateway.deploy_stage(gateway_info, self.location, stage, aws_syncr.extra)
+    def find_sample_event(self, amazon, method, endpoint):
+        available = list(self.resources.keys())
+        if endpoint not in available:
+            raise UnknownEndpoint("Please specify an endpoint that exists", got=endpoint, available=available)
+
+        methods = self.resources[endpoint].methods
+        if method not in self.resources[endpoint].methods:
+            raise UnknownEndpoint("Please specify a valid http_method for this endpoint", got=method, available=list(methods.keys()))
+
+        return self.resources[endpoint].methods[method].sample_event
+
+    def available_methods_and_endpoints(self):
+        for endpoint, resource in self.resources.items():
+            for method in resource.methods:
+                yield method, endpoint
+
+    def deploy(self, aws_syncr, amazon, stage):
+        self.validate_stage(amazon, stage)
+        amazon.apigateway.deploy_stage(self.gateway_info(amazon), self.location, stage, aws_syncr.extra)
+
+    def test(self, aws_syncr, amazon, stage):
+        endpoint = aws_syncr.extra.strip()
+        if not endpoint or " " not in endpoint:
+            options = sorted("{0} {1}".format(m, e) for m, e in list(self.available_methods_and_endpoints()))
+            raise AwsSyncrError("{0}\n".format(dedent("""
+            Please specify ' -- <http_method> <endpoint> ' at the end of the command
+
+            For example:
+
+                {0} -- <http_method> <endpoint>
+
+            Where the available options are:
+
+                {1}
+
+            """.format(' '.join(sys.argv), '\n\t\t'.join(options)).strip()
+            )))
+
+        method, endpoint = endpoint.split(" ", 1)
+        sample_event = self.find_sample_event(amazon, method, endpoint)
+
+        self.validate_stage(amazon, stage)
+        amazon.apigateway.test_stage(self.gateway_info(amazon), self.location, stage, method, endpoint, sample_event)
 
 def __register__():
     return {(99, "apigateway"): sb.container_spec(Gateways, sb.dictof(sb.string_spec(), gateways_spec()))}
