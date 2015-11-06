@@ -16,6 +16,7 @@ from option_merge import MergedOptions
 from textwrap import dedent
 import logging
 import base64
+import json
 import sys
 import six
 
@@ -250,6 +251,12 @@ class LambdaIntegrationOptions(dictobj):
         for _ in changer("M", "Lambda resource policy", gateway=gateway_name, function=self.function):
             pass
 
+class MockIntegrationOptions(dictobj):
+    fields = ['mapping']
+
+    def put_kwargs(self, gateway_location, accounts, environment):
+        return {'requestTemplates': {self.mapping.content_type: self.mapping.template}}
+
 class LambdaMethod(dictobj):
     fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'require_api_key', 'mapping', 'sample_event', 'desired_output_for_test']
 
@@ -269,9 +276,9 @@ class MockMethod(dictobj):
     def resource_options(self):
         return ResourceOptions(
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
-            , integration_request = MethodExecutionIntegrationRequest(integration_type="MOCK")
+            , integration_request = MethodExecutionIntegrationRequest(integration_type="MOCK", options=MockIntegrationOptions(mapping=self.mapping))
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
-            , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
+            , integration_response = MethodExecutionIntegrationResponse(responses={200: [Mapping("application/json", '')]})
             )
 
 class GatewayResource(dictobj):

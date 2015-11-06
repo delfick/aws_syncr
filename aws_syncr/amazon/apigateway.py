@@ -191,8 +191,13 @@ class ApiGateway(AmazonMixin, object):
 
         new_kwargs = new_integration.put_kwargs(location, self.accounts, self.environment)
         old_kwargs = {} if not old_integration else {"type": old_integration["type"]}
+
+        if old_integration and old_integration.get('requestTemplates'):
+            old_kwargs['requestTemplates'] = old_integration['requestTemplates']
+
         if old_kwargs and old_kwargs['type'] == 'AWS':
             old_kwargs['uri'] = old_integration['uri']
+
         changes = list(Differ.compare_two_documents(old_kwargs, new_kwargs))
 
         # Make sure our integration can be called by apigateway
@@ -229,12 +234,14 @@ class ApiGateway(AmazonMixin, object):
             for _ in self.change("+", "gateway resource integration response", gateway=name, resource=path, method=method, status_code=status_code):
                 resource_id = resources_by_path[path]['id']
                 client.put_integration_response(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, statusCode=str(status_code)
-                    , responseTemplates = dict((m.content_type, m.template) for m in wanted_integration[status_code])
+                    , responseTemplates = {} if not wanted_integration[status_code] else dict((m.content_type, m.template) for m in wanted_integration[status_code])
                     )
 
         for status_code in for_modification:
-            old = old_integration[status_code]['responseTemplates']
-            new = dict((m.content_type, m.template) for m in wanted_integration[status_code])
+            old = old_integration[status_code].get('responseTemplates', {})
+            new = {}
+            if wanted_integration[status_code]:
+                new = dict((m.content_type, m.template) for m in wanted_integration[status_code])
             changes = list(Differ.compare_two_documents(old, new))
 
             old = dict((ct.replace('/', '~1'), v) for ct, v in old.items())
