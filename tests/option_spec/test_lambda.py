@@ -173,7 +173,7 @@ describe TestCase, "lambdas_spec":
             , Lambda(
                   name="function", location="ap-southeast-2", code={"code":"codez", "runtime":"python2.7"}, runtime="python2.7"
                 , handler="lambda_function.lambda_handler", memory_size=128, timeout=30, sample_event=""
-                , description = '', role="arn"
+                , description = '', role="arn", desired_output_for_test=""
                 )
             )
 
@@ -206,6 +206,7 @@ describe TestCase, "Lambdas":
                   name=self.name, role=self.role, code=self.code, timeout=self.timeout
                 , runtime=self.runtime, location=self.location, description=self.description
                 , sample_event=self.sample_event, memory_size=self.memory_size, handler=self.handler
+                , desired_output_for_test=""
                 )
             self.lambdas = Lambdas(items={self.name: self.function})
 
@@ -381,12 +382,12 @@ describe TestCase, "__register__":
               "func1": Lambda(
                   name="func1", role="arn:etc:1", code=InlineCode("codez", "python2.7"), timeout=30, runtime="python2.7"
                 , location="ap-southeast-2", description="a function!", sample_event="sample", memory_size=192
-                , handler="lambda_function.lambda_handler"
+                , handler="lambda_function.lambda_handler", desired_output_for_test=""
                 )
             , "func2": Lambda(
                   name="func2", role="arn:etc:2", code=InlineCode("memory_leak_factory()", "nodejs"), timeout=3
                 , runtime="nodejs", location="ap-southeast-2", description="another function!", sample_event="sample2"
-                , memory_size=256, handler="index.handler"
+                , memory_size=256, handler="index.handler", desired_output_for_test=""
                 )
             })
         )
