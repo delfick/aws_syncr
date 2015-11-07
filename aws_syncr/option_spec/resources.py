@@ -1,3 +1,4 @@
+from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.errors import BadPolicy
 
 from input_algorithms.spec_base import NotSpecified
@@ -42,13 +43,15 @@ class iam_specs(resource_spec_base):
         has_self = False
         for account_id in self.accounts(meta):
             users = sb.listof(sb.string_spec()).normalise(meta.at("users"), self.resource.get('users', NotSpecified))
-            for name in sb.listof(sb.any_spec()).normalise(meta, val):
+            for index, name in enumerate(sb.listof(sb.any_spec()).normalise(meta, val)):
                 if name == "__self__":
                     if self.self_type != 'role':
                         raise BadPolicy("No __self__ iam role for this policy", meta=meta)
                     else:
                         has_self = True
                 else:
+                    if isinstance(name, six.string_types):
+                        name = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.indexed_at(index), name)
                     pairs.append((name, account_id))
 
         if has_self:
