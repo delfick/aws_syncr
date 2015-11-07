@@ -173,16 +173,16 @@ class Lambda(dictobj):
         output = amazon.lambdas.test_function(self.name, self.sample_event, self.location)
         print(json.dumps(output, indent=4))
 
-        if desired_output_for_test and desired_output_for_test is not NotSpecified:
+        if self.desired_output_for_test and self.desired_output_for_test is not NotSpecified:
             content = output['Payload']
-            if isinstance(desired_output_for_test, six.string_types):
-                if not re.match(desired_output_for_test, content):
-                    print("content '{0}' does not match pattern '{1}'".format(content, desired_output_for_test))
+            if isinstance(self.desired_output_for_test, six.string_types):
+                if not re.match(self.desired_output_for_test, content):
+                    print("content '{0}' does not match pattern '{1}'".format(content, self.desired_output_for_test))
                     return False
 
             else:
-                if any(content[key] != val for key, val in desired_output_for_test.items()):
-                    print("Not all of the values match our desired output of '{0}'".format(desired_output_for_test))
+                if any(content[key] != val for key, val in self.desired_output_for_test.items()):
+                    print("Not all of the values match our desired output of '{0}'".format(self.desired_output_for_test))
                     return False
 
         return True
