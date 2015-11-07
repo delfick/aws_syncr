@@ -11,6 +11,9 @@ It currently supports:
 * Modification of s3 bucket policy and s3 bucket tags
 * Creation and modification of KMS keys
 * Creation and modification of KMS key grants
+* Creation and modification of Lambda functions
+* Creation and modification of apigateways
+* Creation and modification of Route53 CNAMEs
 
 Installation
 ------------
@@ -64,8 +67,8 @@ For example, let's say you have a ``dev`` environment and a ``stg`` environment:
 
 Then from that folder::
 
-    $ aws_syncr ./dev --dry-run
-    $ aws_syncr ./dev
+    $ aws_syncr ./dev sync --dry-run
+    $ aws_syncr ./dev sync
 
 Tests
 -----
