@@ -239,6 +239,10 @@ class ApiGateway(AmazonMixin, object):
 
         for status_code in for_modification:
             old = old_integration[status_code].get('responseTemplates', {})
+            for ct, template in old.items():
+                if template is None:
+                    old[ct] = ""
+
             new = {}
             if wanted_integration[status_code]:
                 new = dict((m.content_type, m.template) for m in wanted_integration[status_code])

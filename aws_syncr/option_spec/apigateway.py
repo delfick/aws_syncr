@@ -276,9 +276,9 @@ class MockMethod(dictobj):
     def resource_options(self):
         return ResourceOptions(
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
-            , integration_request = MethodExecutionIntegrationRequest(integration_type="MOCK", options=MockIntegrationOptions(mapping=self.mapping))
+            , integration_request = MethodExecutionIntegrationRequest(integration_type="MOCK", options=MockIntegrationOptions(mapping=Mapping("application/json", '{"statusCode": 200}')))
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
-            , integration_response = MethodExecutionIntegrationResponse(responses={200: [Mapping("application/json", '')]})
+            , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
             )
 
 class GatewayResource(dictobj):
