@@ -43,7 +43,7 @@ class Collector(Collector):
         available_environments = [os.path.abspath(path) for path in available if os.path.isdir(path)]
 
         # Remove any trailing slashes
-        while environment.endswith("/"):
+        while environment and environment.endswith("/"):
             environment = environment[:-1]
 
         # Make sure the environment exists
