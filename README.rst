@@ -15,6 +15,8 @@ It currently supports:
 * Creation and modification of apigateways
 * Creation and modification of Route53 CNAMEs
 
+See more documentation at http://aws_syncr.readthedocs.org
+
 Installation
 ------------
 
