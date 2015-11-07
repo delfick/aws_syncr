@@ -121,7 +121,7 @@ class arn_specs(resource_spec_base):
             raise BadPolicy("Generic arn specified without specifying 'identity'", meta=meta)
 
         location = self.location(meta)
-        identities = sb.listof(sb.string_spec()).normalise(meta.at("identity"), self.resource.get("identity"))
+        identities = sb.listof(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)).normalise(meta.at("identity"), self.resource.get("identity"))
 
         for account_id in self.accounts(meta):
             for identity in identities:
