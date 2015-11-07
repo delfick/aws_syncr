@@ -42,6 +42,11 @@ class Collector(Collector):
         available = [os.path.join(configuration_folder, name) for name in os.listdir(configuration_folder)]
         available_environments = [os.path.abspath(path) for path in available if os.path.isdir(path)]
 
+        # Remove any trailing slashes
+        while environment.endswith("/"):
+            environment = environment[:-1]
+
+        # Make sure the environment exists
         if environment and os.path.abspath(environment) not in available_environments:
             raise BadOption("Specified environment doesn't exist", available=available_environments, wanted=environment)
 
