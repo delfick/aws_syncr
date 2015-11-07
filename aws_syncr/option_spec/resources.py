@@ -24,12 +24,15 @@ class resource_spec_base(sb.Spec):
             yield default_account_id
 
         for provided_account in provided_accounts:
-            if provided_account not in accounts:
-                raise BadPolicy("Unknown account specified", account=provided_account, meta=meta)
+            if not provided_account:
+                yield ""
             else:
-                account_id = accounts[provided_account]
+                if provided_account not in accounts:
+                    raise BadPolicy("Unknown account specified", account=provided_account, meta=meta)
+                else:
+                    account_id = accounts[provided_account]
 
-            yield account_id
+                yield account_id
 
     def default_location(self, meta):
         return meta.everything["aws_syncr"].location
