@@ -457,7 +457,7 @@ class ApiGateway(AmazonMixin, object):
 
                 else:
                     content = json.loads(res.content.decode('utf-8'))
-                    if any(content[key] != val for key, val in desired_output_for_test.items()):
+                    if any(key not in content or content[key] != val for key, val in desired_output_for_test.items()):
                         print("Not all of the values match our desired output of '{0}'".format(desired_output_for_test))
                         return False
 

@@ -181,7 +181,7 @@ class Lambda(dictobj):
                     return False
 
             else:
-                if any(content[key] != val for key, val in self.desired_output_for_test.items()):
+                if any(key not in content or content[key] != val for key, val in self.desired_output_for_test.items()):
                     print("Not all of the values match our desired output of '{0}'".format(self.desired_output_for_test))
                     return False
 
