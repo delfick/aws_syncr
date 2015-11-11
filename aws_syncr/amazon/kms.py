@@ -52,7 +52,7 @@ class Kms(AmazonMixin, object):
                 with self.catch_boto_400("Couldn't create alias", alias=name, keyid=keyid):
                     client.create_alias(AliasName="alias/{0}".format(name), TargetKeyId=keyid)
 
-                self.handle_grants(client, keyid, [], name, grant)
+                self.handle_grants(client, keyid, [], name, [g.statement for g in grant])
 
     def modify_key(self, key_info, name, description, location, grant, policy):
         client = self.get_client(location)
