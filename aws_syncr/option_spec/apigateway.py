@@ -29,6 +29,22 @@ api_key_spec = lambda: sb.create_spec(ApiKey
     , stages = sb.listof(formatted_string())
     )
 
+class formatted_dictionary(sb.Spec):
+    def normalise(self, meta, val):
+        val = sb.dictionary_spec().normalise(meta, val)
+        return self.formatted_dict(meta, val)
+
+    def formatted_dict(self, meta, val, chain=None):
+        result = {}
+        for key, val in val.items():
+            if type(val) is dict:
+                result[key] = self.formatted_dict(meta.at(key), val, chain)
+            elif isinstance(val, six.string_types):
+                result[key] = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at(key), val)
+            else:
+                result[key] = val
+        return result
+
 class valid_secret(Validator):
     def validate(self, meta, val):
         val = sb.dictionary_spec().normalise(meta, val)
@@ -104,8 +120,8 @@ class aws_resource_spec(Spec):
             , account = sb.optional_spec(formatted_string())
             , require_api_key = sb.defaulted(sb.boolean(), False)
             , mapping = sb.defaulted(mapping_spec(), Mapping("application/json", "$input.json('$')"))
-            , sample_event = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
-            , desired_output_for_test = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
+            , sample_event = sb.or_spec(formatted_dictionary(), sb.string_spec())
+            , desired_output_for_test = sb.or_spec(formatted_dictionary(), sb.string_spec())
             ).normalise(meta, val)
 
         for key in ('sample_event', 'desired_output_for_test'):

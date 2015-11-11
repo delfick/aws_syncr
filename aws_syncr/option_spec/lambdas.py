@@ -21,6 +21,22 @@ import os
 
 log = logging.getLogger("aws_syncr.option_spec.lambdas")
 
+class formatted_dictionary(sb.Spec):
+    def normalise(self, meta, val):
+        val = sb.dictionary_spec().normalise(meta, val)
+        return self.formatted_dict(meta, val)
+
+    def formatted_dict(self, meta, val, chain=None):
+        result = {}
+        for key, val in val.items():
+            if type(val) is dict:
+                result[key] = self.formatted_dict(meta.at(key), val, chain)
+            elif isinstance(val, six.string_types):
+                result[key] = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at(key), val)
+            else:
+                result[key] = val
+        return result
+
 class only_one_spec(sb.Spec):
     def setup(self, spec):
         self.spec = spec
@@ -126,8 +142,8 @@ class lambdas_spec(Spec):
             , runtime = sb.required(formatted_string)
             , location = sb.required(formatted_string)
             , description = formatted_string
-            , sample_event = sb.defaulted(sb.or_spec(sb.dictionary_spec(), sb.string_spec()), "")
-            , desired_output_for_test = sb.defaulted(sb.or_spec(sb.dictionary_spec(), sb.string_spec()), "")
+            , sample_event = sb.defaulted(sb.or_spec(formatted_dictionary(), sb.string_spec()), "")
+            , desired_output_for_test = sb.defaulted(sb.or_spec(formatted_dictionary(), sb.string_spec()), "")
             , memory_size = sb.defaulted(divisible_by_spec(64), 128)
             ).normalise(meta, val)
 
