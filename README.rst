@@ -15,7 +15,8 @@ It currently supports:
 * Creation and modification of apigateways
 * Creation and modification of Route53 CNAMEs
 
-See more documentation at http://aws_syncr.readthedocs.org
+See more documentation at http:/
+/aws_syncr.readthedocs.org
 
 Installation
 ------------
@@ -41,7 +42,7 @@ To run it you have the following file structure::
 
 And then you run::
 
-    $ aws_syncr /path/to/<environment> sync
+    $ aws_syncr <environment> sync
 
 For example, let's say you have a ``dev`` environment and a ``stg`` environment::
 
@@ -69,8 +70,12 @@ For example, let's say you have a ``dev`` environment and a ``stg`` environment:
 
 Then from that folder::
 
-    $ aws_syncr ./dev sync --dry-run
-    $ aws_syncr ./dev sync
+    $ aws_syncr dev sync --dry-run
+    $ aws_syncr dev sync
+
+Or if you are not in that folder::
+
+    $ AWS_SYNCR_CONFIG_FOLDER=<folder> aws_syncr [..]
 
 Tests
 -----

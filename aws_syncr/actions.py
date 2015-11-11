@@ -111,15 +111,15 @@ def find_certificate_source(configuration, gateway, certificate):
 @an_action
 def list_tasks(collector):
     """List the available_tasks"""
-    print("Usage: aws_syncr <environment_folder> <task>")
+    print("Usage: aws_syncr <environment> <task>")
     print("")
-    print("Available environment folders to choose from are")
-    print("------------------------------------------------")
+    print("Available environments to choose from are")
+    print("-----------------------------------------")
     print("")
     for environment in os.listdir(collector.configuration_folder):
         location = os.path.join(collector.configuration_folder, environment)
         if os.path.isdir(location) and not environment.startswith("."):
-            print("\t{0}".format(location))
+            print("\t{0}".format(environment))
 
     print("")
     print("Available tasks to choose from are:")
@@ -168,6 +168,7 @@ def deploy_lambda(collector):
 
 @an_action
 def test_lambda(collector):
+    """Invoke a lambda function with the defined sample_event and compare against desired_output_for_test"""
     amazon = collector.configuration['amazon']
     amazon._validated = True
     aws_syncr = collector.configuration['aws_syncr']
@@ -176,11 +177,13 @@ def test_lambda(collector):
 
 @an_action
 def deploy_and_test_lambda(collector):
+    """Do a deploy of a lambda function followed by invoking it"""
     deploy_lambda(collector)
     test_lambda(collector)
 
 @an_action
 def deploy_gateway(collector):
+    """Deploy the apigateway to a particular stage"""
     configuration = collector.configuration
     aws_syncr = configuration['aws_syncr']
     aws_syncr, amazon, stage, gateway = find_gateway(aws_syncr, configuration)
@@ -191,6 +194,7 @@ def deploy_gateway(collector):
 
 @an_action
 def sync_and_deploy_gateway(collector):
+    """Do a sync followed by deploying the gateway"""
     configuration = collector.configuration
     aws_syncr = configuration['aws_syncr']
     find_gateway(aws_syncr, configuration)
@@ -204,6 +208,7 @@ def sync_and_deploy_gateway(collector):
 
 @an_action
 def test_gateway(collector):
+    """Specify <method> <endpoint> after -- from the commandline and that gateway endpoint will be requested"""
     collector.configuration['amazon']._validated = True
     configuration = collector.configuration
     aws_syncr = configuration['aws_syncr']
@@ -213,6 +218,7 @@ def test_gateway(collector):
 
 @an_action
 def test_all_gateway_endpoints(collector):
+    """Do a test on all the available gateway endpoints"""
     collector.configuration['amazon']._validated = True
     configuration = collector.configuration
     aws_syncr = configuration['aws_syncr']
@@ -233,6 +239,7 @@ def test_all_gateway_endpoints(collector):
 
 @an_action
 def encrypt_certificate(collector):
+    """Write encrypted values for your certificate to the configuration"""
     configuration = collector.configuration
     amazon = configuration['amazon']
     aws_syncr = configuration['aws_syncr']
