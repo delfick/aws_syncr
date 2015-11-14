@@ -43,6 +43,8 @@ class ApiGateway(AmazonMixin, object):
             for resource in info['resources']:
                 for method in resource.get('resourceMethods', {}):
                     resource['resourceMethods'][method] = client.get_method(restApiId=info['identity'], resourceId=resource['id'], httpMethod=method)
+                    for status_code, options in resource['resourceMethods'][method]['methodResponses'].items():
+                        options.update(client.get_method_response(restApiId=info['identity'], resourceId=resource['id'], httpMethod=method, statusCode=status_code))
 
             info['deployment'] = client.get_deployments(restApiId=info['identity'])['items']
         else:
@@ -172,6 +174,7 @@ class ApiGateway(AmazonMixin, object):
 
         for_removal = set(old_status_codes) - set(new_status_codes)
         for_addition = set(new_status_codes) - set(old_status_codes)
+        for_modification = [status_code for status_code in new_status_codes if status_code in old_status_codes]
 
         for status_code in for_removal:
             for _ in self.change("-", "gateway resource method response", gateway=name, resource=path, method=method, status_code=status_code):
@@ -181,16 +184,48 @@ class ApiGateway(AmazonMixin, object):
         for status_code in for_addition:
             for _ in self.change("+", "gateway resource method response", gateway=name, resource=path, method=method, status_code=status_code):
                 resource_id = resources_by_path[path]['id']
+                models = {new_method.method_response.responses[int(status_code)]: "Empty"}
+                models = dict((ct, model) for ct, model in models.items() if ct != "application/json")
                 client.put_method_response(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, statusCode=str(status_code)
                     , responseParameters = {}
+                    , responseModels = models
                     )
+
+        for status_code in for_modification:
+            new = {new_method.method_response.responses[int(status_code)]: "Empty"}
+            new = dict((ct, model) for ct, model in new.items() if ct != "application/json")
+
+            old = old_method["methodResponses"][status_code].get("responseModels", {})
+            changes = list(Differ.compare_two_documents(old, new))
+
+            old = dict((ct.replace('/', '~1'), v) for ct, v in old.items())
+            new = dict((ct.replace('/', '~1'), v) for ct, v in new.items())
+
+            if changes:
+                for_removal = set(old) - set(new)
+                for_addition = set(new) - set(old)
+                for_mod = [content_type for content_type in new if content_type in old]
+                operations = []
+
+                for content_type in for_removal:
+                    operations.append({"op": "remove", "path": "/responseModels/{0}".format(content_type)})
+                for content_type in for_addition:
+                    operations.append({"op": "add", "path":"/responseModels/{0}".format(content_type), 'value': new[content_type]})
+                for content_type in for_mod:
+                    operations.append({"op": "replace", "path":"/responseModels/{0}".format(content_type), 'value': new[content_type]})
+
+                for _ in self.change("M", "gateway resource method response model", gateway=name, resource=path, method=method, status_code=status_code, changes=changes):
+                    resource_id = resources_by_path[path]['id']
+                    client.update_method_response(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method, statusCode=str(status_code)
+                        , patchOperations = operations
+                        )
 
     def modify_resource_method_integration(self, client, gateway_info, location, name, path, method, old_method, new_method, resources_by_path):
         old_integration = old_method.get('methodIntegration', {})
         new_integration = new_method.integration_request
 
         new_kwargs = new_integration.put_kwargs(location, self.accounts, self.environment)
-        old_kwargs = {} if not old_integration else {"type": old_integration["type"]}
+        old_kwargs = {} if not old_integration else {"type": old_integration["type"], "httpMethod": old_integration["httpMethod"]}
 
         if old_integration and old_integration.get('requestTemplates'):
             old_kwargs['requestTemplates'] = old_integration['requestTemplates']
@@ -213,7 +248,7 @@ class ApiGateway(AmazonMixin, object):
             for _ in self.change(symbol, "gateway resource method integration request", gateway=name, resource=path, method=method, type=new_kwargs['type'], changes=changes):
                 resource_id = resources_by_path[path]['id']
                 client.put_integration(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method
-                    , integrationHttpMethod=method
+                    , integrationHttpMethod=new_kwargs.pop("httpMethod")
                     , **new_kwargs
                     )
 
@@ -237,6 +272,7 @@ class ApiGateway(AmazonMixin, object):
                     , responseTemplates = {} if not wanted_integration[status_code] else dict((m.content_type, m.template) for m in wanted_integration[status_code])
                     )
 
+        # Modify response Templates
         for status_code in for_modification:
             old = old_integration[status_code].get('responseTemplates', {})
             for ct, template in old.items():

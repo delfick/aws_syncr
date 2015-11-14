@@ -100,9 +100,14 @@ class custom_domain_name_spec(Spec):
 
         return result
 
+formatted_dictionary_or_string = lambda : sb.match_spec(
+      (six.string_types, formatted_string())
+    , fallback = sb.dictof(sb.string_spec(), formatted_string())
+    )
+
 mapping_spec = lambda: sb.create_spec(Mapping
     , content_type = sb.defaulted(formatted_string(), "application/json")
-    , template = sb.defaulted(sb.string_spec(), "$input.json('$')")
+    , template = sb.defaulted(formatted_dictionary_or_string(), "$input.json('$')")
     )
 
 class aws_resource_spec(Spec):
@@ -119,6 +124,7 @@ class aws_resource_spec(Spec):
             , location = formatted_string()
             , account = sb.optional_spec(formatted_string())
             , require_api_key = sb.defaulted(sb.boolean(), False)
+            , request_mapping = sb.defaulted(mapping_spec(), Mapping("application/json", ""))
             , mapping = sb.defaulted(mapping_spec(), Mapping("application/json", "$input.json('$')"))
             , sample_event = sb.or_spec(formatted_dictionary(), sb.string_spec())
             , desired_output_for_test = sb.or_spec(formatted_dictionary(), sb.string_spec())
@@ -158,6 +164,7 @@ class mock_resource_spec(Spec):
             , http_method = sb.overridden(self.method)
             , resource_name = sb.overridden(self.resource_name)
 
+            , request_mapping = sb.defaulted(mapping_spec(), Mapping("application/json", '{"statusCode": 200}'))
             , mapping = mapping_spec()
             , require_api_key = sb.defaulted(sb.boolean(), False)
             , sample_event = sb.or_spec(sb.dictionary_spec(), sb.string_spec())
@@ -239,7 +246,7 @@ class MethodExecutionIntegrationResponse(dictobj):
     fields = ['responses']
 
 class LambdaIntegrationOptions(dictobj):
-    fields = ['http_method', 'resource_name', 'function', 'location', 'account']
+    fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'mapping']
 
     def arn(self, accounts, environment):
         if self.account is NotSpecified:
@@ -255,7 +262,11 @@ class LambdaIntegrationOptions(dictobj):
     def put_kwargs(self, gateway_location, accounts, environment):
         arn = self.arn(accounts, environment)
         uri = "arn:aws:apigateway:{0}:lambda:path/2015-03-31/functions/{1}/invocations".format(gateway_location, arn)
-        return {'uri': uri}
+        template = self.mapping.template
+        if not isinstance(template, six.string_types):
+            template = json.dumps(template, sort_keys=True)
+        request_templates = {self.mapping.content_type: template}
+        return {'uri': uri, 'requestTemplates': request_templates, 'httpMethod': "POST"}
 
     def create_permissions(self, amazon, gateway_arn, gateway_name, accounts, environment):
         arn = self.arn(accounts, environment)
@@ -268,31 +279,34 @@ class LambdaIntegrationOptions(dictobj):
             pass
 
 class MockIntegrationOptions(dictobj):
-    fields = ['mapping']
+    fields = ['http_method', 'mapping']
 
     def put_kwargs(self, gateway_location, accounts, environment):
-        return {'requestTemplates': {self.mapping.content_type: self.mapping.template}}
+        template = self.mapping.template
+        if not isinstance(template, six.string_types):
+            template = json.dumps(template, sort_keys=True)
+        return {'requestTemplates': {self.mapping.content_type: template}, 'httpMethod': self.http_method}
 
 class LambdaMethod(dictobj):
-    fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'require_api_key', 'mapping', 'sample_event', 'desired_output_for_test']
+    fields = ['http_method', 'resource_name', 'function', 'location', 'account', 'require_api_key', 'request_mapping', 'mapping', 'sample_event', 'desired_output_for_test']
 
     @property
     def resource_options(self):
         return ResourceOptions(
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
-            , integration_request = MethodExecutionIntegrationRequest(integration_type="AWS", options=LambdaIntegrationOptions(http_method=self.http_method, resource_name=self.resource_name, function=self.function, location=self.location, account=self.account))
-            , method_response = MethodExecutionResponse(responses={200: "application/json"})
+            , integration_request = MethodExecutionIntegrationRequest(integration_type="AWS", options=LambdaIntegrationOptions(mapping=self.request_mapping, http_method=self.http_method, resource_name=self.resource_name, function=self.function, location=self.location, account=self.account))
+            , method_response = MethodExecutionResponse(responses={200: self.mapping.content_type})
             , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
             )
 
 class MockMethod(dictobj):
-    fields = ['http_method', 'resource_name', 'mapping', 'require_api_key', 'sample_event', 'desired_output_for_test']
+    fields = ['http_method', 'resource_name', 'request_mapping', 'mapping', 'require_api_key', 'sample_event', 'desired_output_for_test']
 
     @property
     def resource_options(self):
         return ResourceOptions(
               method_request = MethodExecutionRequest(require_api_key=self.require_api_key)
-            , integration_request = MethodExecutionIntegrationRequest(integration_type="MOCK", options=MockIntegrationOptions(mapping=Mapping("application/json", '{"statusCode": 200}')))
+            , integration_request = MethodExecutionIntegrationRequest(integration_type="MOCK", options=MockIntegrationOptions(http_method=self.http_method, mapping=self.request_mapping))
             , method_response = MethodExecutionResponse(responses={200: "application/json"})
             , integration_response = MethodExecutionIntegrationResponse(responses={200: [self.mapping]})
             )
