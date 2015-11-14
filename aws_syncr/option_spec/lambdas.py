@@ -248,7 +248,7 @@ class DirectoryCode(dictobj):
     s3_address = None
 
     def files(self):
-        for root, dirs, files in os.walk(self.directory):
+        for root, dirs, files in os.walk(self.directory, followlinks=True):
             for fle in files:
                 location = os.path.join(root, fle)
                 if not any(fnmatch.fnmatch(location, os.path.join(self.directory, ex)) for ex in self.exclude):
