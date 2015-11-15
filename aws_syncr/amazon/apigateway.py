@@ -225,13 +225,15 @@ class ApiGateway(AmazonMixin, object):
         new_integration = new_method.integration_request
 
         new_kwargs = new_integration.put_kwargs(location, self.accounts, self.environment)
-        old_kwargs = {} if not old_integration else {"type": old_integration["type"], "httpMethod": old_integration["httpMethod"]}
+        old_kwargs = {} if not old_integration else {"type": old_integration["type"], "httpMethod": old_integration.get("httpMethod")}
 
         if old_integration and old_integration.get('requestTemplates'):
             old_kwargs['requestTemplates'] = old_integration['requestTemplates']
 
         if old_kwargs and old_kwargs['type'] == 'AWS':
             old_kwargs['uri'] = old_integration['uri']
+        elif old_kwargs and old_kwargs['type'] == 'MOCK':
+            old_kwargs["httpMethod"] = method
 
         changes = list(Differ.compare_two_documents(old_kwargs, new_kwargs))
 
