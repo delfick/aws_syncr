@@ -35,7 +35,8 @@ def find_lambda_function(aws_syncr, configuration):
         raise AwsSyncrError("Please define lambda functions under the 'lambda' section of your configuration")
 
     if not lambda_function:
-        raise AwsSyncrError("Please specify --artifact for the lambda function to deploy")
+        available = list(configuration['lambda'].items.keys())
+        raise AwsSyncrError("Please specify --artifact for the lambda function to deploy", available=available)
 
     wanted = ['lambda', lambda_function]
     if wanted not in configuration:
