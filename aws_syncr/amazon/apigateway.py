@@ -252,10 +252,17 @@ class ApiGateway(AmazonMixin, object):
             symbol = "+" if not old_integration else 'M'
             for _ in self.change(symbol, "gateway resource method integration request", gateway=name, resource=path, method=method, type=new_kwargs['type'], changes=changes):
                 resource_id = resources_by_path[path]['id']
-                client.put_integration(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method
-                    , integrationHttpMethod=new_kwargs.pop("httpMethod")
+                integration_method = new_kwargs.pop("httpMethod")
+                res = client.put_integration(restApiId=gateway_info['identity'], resourceId=resource_id, httpMethod=method
+                    , integrationHttpMethod=integration_method
                     , **new_kwargs
                     )
+
+                # put_integration removes the integration response so we take it away from our record
+                # And let modify_resource_method_integration_response deal with the dissapearance
+                if 'integrationResponses' in old_method.get("methodIntegration", {}):
+                    del old_method["methodIntegration"]['integrationResponses']
+                new_kwargs['responseTemplates'] = new_method.integration_response.responses.items()
 
     def modify_resource_method_integration_response(self, client, gateway_info, name, path, method, old_method, new_method, resources_by_path):
         old_integration = old_method.get('methodIntegration', {}).get("integrationResponses", {})
