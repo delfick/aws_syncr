@@ -229,6 +229,9 @@ class ApiGateway(AmazonMixin, object):
 
         if old_integration and old_integration.get('requestTemplates'):
             old_kwargs['requestTemplates'] = old_integration['requestTemplates']
+            for ct, template in list(old_kwargs['requestTemplates'].items()):
+                if not template:
+                    old_kwargs['requestTemplates'][ct] = ""
 
         if old_kwargs and old_kwargs['type'] == 'AWS':
             old_kwargs['uri'] = old_integration['uri']
