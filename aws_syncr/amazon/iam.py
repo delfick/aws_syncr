@@ -59,7 +59,8 @@ class Iam(AmazonMixin, object):
                         current_policies[policy].delete()
 
         for policy, document in policies.items():
-            if not document:
+            has_statements = bool(json.loads(document)["Statement"])
+            if not has_statements:
                 if policy in current_policies:
                     with self.catch_boto_400("Couldn't delete a policy from a role", policy=policy, role=name):
                         for _ in self.change("-", "policy", role=name, policy=policy):
