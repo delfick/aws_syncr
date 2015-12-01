@@ -32,7 +32,7 @@ class buckets_spec(Spec):
         val['permission'] = original_permission + deny_permission + allow_permission
         return sb.create_spec(Bucket
             , name = sb.overridden(bucket_name)
-            , location = sb.required(formatted_string)
+            , location = sb.defaulted(formatted_string, None)
             , permission = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('bucket', bucket_name)))
             , tags = sb.dictof(sb.string_spec(), formatted_string)
             ).normalise(meta, val)
