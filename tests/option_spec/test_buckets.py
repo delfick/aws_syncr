@@ -21,17 +21,6 @@ describe TestCase, "buckets_spec":
         result = buckets_spec().normalise(Meta(everything, [('buckets', ""), ('my_bucket', "")]), spec)
         self.assertEqual(result.name, "my_bucket")
 
-    it "requires a location":
-        meta = mock.Mock(name="meta")
-        meta.everything = {}
-        meta.key_names.return_value = {"_key_name_0": "asdf"}
-        at_location = mock.Mock(name="location")
-        def meta_at(path):
-            return {"path": path}
-        meta.at.side_effect = meta_at
-        with self.fuzzyAssertRaisesError(BadSpecValue, _errors=[BadSpecValue("Expected a value but got none", meta={"path": "location"})]):
-            buckets_spec().normalise(meta, MergedOptions.using({}))
-
     it "merges with a template":
         everything = {"templates": {"blah": {"location": "ap-southeast-2"}}}
         result = buckets_spec().normalise(Meta(everything, [('buckets', ""), ("tree", "")]), {"use": "blah"})
