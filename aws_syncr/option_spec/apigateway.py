@@ -134,7 +134,7 @@ class aws_resource_spec(Spec):
             if isinstance(result[key], six.string_types):
                 v = result[key]
                 if v.startswith("{") and v.endswith("}"):
-                    v = meta.everything[v[1:-1]]
+                    v = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at(key), v)
                     result[key] = v
 
         function = result.function
@@ -175,7 +175,7 @@ class mock_resource_spec(Spec):
             if isinstance(result[key], six.string_types):
                 v = result[key]
                 if v.startswith("{") and v.endswith("}"):
-                    v = meta.everything[v[1:-1]]
+                    v = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at(key), v)
                     result[key] = v
 
 class gateway_methods_spec(Spec):
