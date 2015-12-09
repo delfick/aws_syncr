@@ -71,7 +71,7 @@ class iam_specs(resource_spec_base):
 
 class s3_specs(resource_spec_base):
     def normalise(self, meta, val):
-        for bucket_key in sb.listof(sb.string_spec()).normalise(meta, val):
+        for bucket_key in sb.listof(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)).normalise(meta, val):
             if bucket_key == "__self__" or bucket_key.startswith("__self__"):
                 if self.self_type != "bucket":
                     raise BadPolicy("No __self__ bucket for this policy", meta=meta)
