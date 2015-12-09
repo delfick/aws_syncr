@@ -9,6 +9,9 @@ class Document(dictobj):
 
     @property
     def document(self):
+        if not self.statements:
+            return None
+
         document = {"Version": "2012-10-17", "Statement": [s.statement for s in self.statements]}
 
         try:
