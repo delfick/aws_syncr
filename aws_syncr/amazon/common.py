@@ -40,7 +40,7 @@ class AmazonMixin:
         except NoCredentialsError:
             raise BadCredentials("Failed to find valid credentials")
         except ClientError as error:
-            if error.response["ResponseMetadata"]["HTTPStatsuCode"] == 403:
+            if error.response["ResponseMetadata"]["HTTPStatusCode"] == 403:
                 raise BadCredentials("Failed to find valid credentials", error=error.message)
             else:
                 raise
