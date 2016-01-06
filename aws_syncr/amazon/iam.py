@@ -99,17 +99,9 @@ class Iam(AmazonMixin, object):
             existing_roles_in_profile = self.resource.InstanceProfile(role_name).roles
 
         if existing_roles_in_profile is None:
-            try:
-                with self.catch_boto_400("Couldn't create instance profile", instance_profile=name):
-                    for _ in self.change("+", "instance_profile", profile=name):
-                        self.resource.InstanceProfile(role_name).add_role(RoleName=role_name)
-            except ClientError as error:
-                if error.response["ResponseMetadata"]["HTTPStatusCode"] == 409:
-                    # I'd rather ignore this conflict, than list all the instance_profiles
-                    # Basically, the instance exists but isn't associated with the role
-                    pass
-                else:
-                    raise
+            with self.catch_boto_400("Couldn't create instance profile", instance_profile=name):
+                for _ in self.change("+", "instance_profile", profile=role_name):
+                    self.client.create_instance_profile(InstanceProfileName=role_name)
 
         if existing_roles_in_profile and any(rl.name != role_name for rl in existing_roles_in_profile):
             for role in [rl for rl in existing_roles_in_profile if rl.name != role_name]:
@@ -118,9 +110,17 @@ class Iam(AmazonMixin, object):
                         self.resource.InstanceProfile(role_name).remove_role(RoleName=role)
 
         if not existing_roles_in_profile or not any(rl.name == role_name for rl in existing_roles_in_profile):
-            with self.catch_boto_400("Couldn't add role to an instance profile", role=name, instance_profile=role_name):
-                for _ in self.change("+", "instance_profile_role", profile=role_name, role=role_name):
-                    self.resource.InstanceProfile(role_name).add_role(RoleName=role_name)
+            try:
+                with self.catch_boto_400("Couldn't add role to an instance profile", role=name, instance_profile=role_name):
+                    for _ in self.change("+", "instance_profile_role", profile=role_name, role=role_name):
+                        self.resource.InstanceProfile(role_name).add_role(RoleName=role_name)
+            except ClientError as error:
+                if error.response["ResponseMetadata"]["HTTPStatusCode"] == 409:
+                    # I'd rather ignore this conflict, than list all the instance_profiles
+                    # Basically, the instance exists but isn't associated with the role
+                    pass
+                else:
+                    raise
 
     def assume_role_credentials(self, arn):
         """Return the environment variables for an assumed role"""
