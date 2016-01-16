@@ -4,6 +4,7 @@ from aws_syncr.option_spec.documents import Document
 from aws_syncr.errors import BadOption, BadTemplate
 
 from input_algorithms.spec_base import NotSpecified
+from input_algorithms.errors import BadSpecValue
 from input_algorithms.dictobj import dictobj
 from input_algorithms import spec_base as sb
 
@@ -32,6 +33,9 @@ class role_spec(object):
 
         allow_to_assume_me = sb.listof(trust_dict("principal")).normalise(meta.at("allow_to_assume_me"), val.get("allow_to_assume_me", NotSpecified))
         disallow_to_assume_me = sb.listof(trust_dict("notprincipal")).normalise(meta.at("disallow_to_assume_me"), val.get("disallow_to_assume_me", NotSpecified))
+
+        if not allow_to_assume_me and not disallow_to_assume_me:
+            raise BadSpecValue("Roles must have either allow_to_assume_me or disallow_to_assume_me specified", meta=meta)
 
         val = val.wrapped()
         val['trust'] = allow_to_assume_me + disallow_to_assume_me

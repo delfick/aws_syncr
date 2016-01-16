@@ -31,9 +31,7 @@ class Iam(AmazonMixin, object):
     def create_role(self, name, trust_document, policies):
         with self.catch_boto_400("Couldn't Make role", "{0} assume document".format(name), trust_document, role=name):
             for _ in self.change("+", "role", role=name, document=trust_document):
-                kwargs = {"RoleName": name}
-                if trust_document:
-                    kwargs["AssumeRolePolicyDocument"] = trust_document
+                kwargs = {"RoleName": name, "AssumeRolePolicyDocument": trust_document}
                 if '/' in name:
                     kwargs["RoleName"] = name.split('/')[-1]
                     kwargs["Path"] = "/{0}/".format('/'.join(name.split('/')[:-1]))
