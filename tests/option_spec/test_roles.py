@@ -17,15 +17,18 @@ import mock
 
 describe TestCase, "role_spec":
     it "overrides the role name with the key of the specification":
-        spec = MergedOptions.using({"name": "overridden"})
-        everything = {"roles": {"my_role": spec}}
+        aws_syncr = mock.Mock(name="aws_syncr", environment="dev")
+        spec = MergedOptions.using({"name": "overridden", "allow_to_assume_me": {"iam": "root"}})
+        everything = {"roles": {"my_role": spec}, "accounts": {"dev": "123"}, "aws_syncr": aws_syncr}
         result = role_spec().normalise(Meta(everything, [('roles', ""), ('my_role', "")]), spec)
         self.assertEqual(result.name, "my_role")
 
     it "merges with a template":
-        everything = {"templates": {"blah": {"description": "Access to all the things!"}}}
+        aws_syncr = mock.Mock(name="aws_syncr", environment="dev")
+        everything = {"templates": {"blah": {"description": "Access to all the things!", "allow_to_assume_me": {"iam": "root"}}}, "accounts": {"dev": "123"}, "aws_syncr": aws_syncr}
         result = role_spec().normalise(Meta(everything, [('roles', ""), ("tree", "")]), {"use": "blah"})
-        self.assertEqual(result, Role(name="tree", description="Access to all the things!", permission=Document([]), trust=Document([]), make_instance_profile=False))
+        trust1 = {'sid': NotSpecified, 'notresource': NotSpecified, 'notcondition': NotSpecified, 'resource': NotSpecified, 'notprincipal': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123:root'}], 'effect': NotSpecified, 'notaction': NotSpecified, 'action': NotSpecified}
+        self.assertEqual(result, Role(name="tree", description="Access to all the things!", permission=Document([]), trust=Document([trust1]), make_instance_profile=False))
 
     it "combines permission, deny_permission and allow_permission":
         # p# = orginal statement
@@ -36,7 +39,7 @@ describe TestCase, "role_spec":
         p3, d3, r3 = mock.Mock(name="p3", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d3"), mock.Mock(name="r3")
         p4, d4, r4 = mock.Mock(name="p4", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d4"), mock.Mock(name="r4")
         p5, d5, r5 = mock.Mock(name="p5", is_dict=True, spec=["is_dict", "get"]), mock.Mock(name="d5"), mock.Mock(name="r5")
-        spec = MergedOptions.using({"permission": p1, "deny_permission": [p2, p3], "allow_permission": [p4, p5]})
+        spec = MergedOptions.using({"permission": p1, "deny_permission": [p2, p3], "allow_permission": [p4, p5], "allow_to_assume_me": {"iam": "root"}})
 
         fake_permission_dict = mock.Mock(name="resource_policy_dict")
         fake_permission_dict.normalise.side_effect = lambda m, p: {p1:d1, p2:d2, p3:d3, p4:d4, p5:d5}[p]
@@ -46,8 +49,11 @@ describe TestCase, "role_spec":
         fake_permission_statement_spec.normalise.side_effect = lambda m, p: {d1:r1, d2:r2, d3:r3, d4:r4, d5:r5}[p]
         fake_permission_statement_spec_kls = mock.Mock(name="permission_statement_spec_kls", return_value=fake_permission_statement_spec)
 
+        aws_syncr = mock.Mock(name="aws_syncr", environment="dev")
+        everything = {"accounts": {"dev": "123"}, "aws_syncr": aws_syncr}
+
         with mock.patch.multiple("aws_syncr.option_spec.roles", permission_dict=fake_permission_dict_kls, permission_statement_spec=fake_permission_statement_spec_kls):
-            result = role_spec().normalise(Meta({}, []).at("roles").at("stuff"), spec)
+            result = role_spec().normalise(Meta(everything, []).at("roles").at("stuff"), spec)
         self.assertEqual(result.permission.statements, [r1, r2, r3, r4, r5])
 
     it "combines allow_to_assume_me and disallow_to_assume_me to form trust":
