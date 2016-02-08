@@ -19,22 +19,22 @@ class App(App):
     cli_environment_defaults = {"AWS_SYNCR_CONFIG_FOLDER": ("--config-folder", '.')}
     cli_positional_replacements = [('--environment'), ('--task', 'list_tasks'), ('--artifact', "")]
 
-    def execute(self, args, extra_args, cli_args, logging_handler, no_docker=False):
-        cli_args["aws_syncr"]["extra"] = extra_args
-        cli_args["aws_syncr"]["debug"] = args.debug
+    def execute(self, args_obj, args_dict, extra_args, logging_handler, no_docker=False):
+        args_dict["aws_syncr"]["extra"] = extra_args
+        args_dict["aws_syncr"]["debug"] = args_obj.debug
 
         collector = Collector()
-        collector.prepare(cli_args["aws_syncr"]["config_folder"], cli_args, cli_args['aws_syncr']['environment'])
+        collector.prepare(args_dict["aws_syncr"]["config_folder"], args_dict, args_dict['aws_syncr']['environment'])
         if hasattr(collector, "configuration") and "term_colors" in collector.configuration:
             self.setup_logging_theme(logging_handler, colors=collector.configuration["term_colors"])
 
-        task = args.aws_syncr_chosen_task
+        task = args_obj.aws_syncr_chosen_task
         if task not in available_actions:
             raise BadTask("Unknown task", available=list(available_actions.keys()), wanted=task)
 
         available_actions[task](collector)
 
-    def setup_other_logging(self, args, verbose=False, silent=False, debug=False):
+    def setup_other_logging(self, args_obj, verbose=False, silent=False, debug=False):
         logging.getLogger("boto3").setLevel([logging.CRITICAL, logging.DEBUG][verbose or debug])
         logging.getLogger("requests").setLevel([logging.CRITICAL, logging.ERROR][verbose or debug])
         logging.getLogger("botocore").setLevel([logging.CRITICAL, logging.DEBUG][verbose or debug])

@@ -28,13 +28,13 @@ class Collector(Collector):
     BadFileErrorKls = BadYaml
     BadConfigurationErrorKls = BadConfiguration
 
-    def alter_clone_cli_args(self, new_collector, new_cli_args, new_aws_syncr_options=None):
+    def alter_clone_args_dict(self, new_collector, new_args_dict, new_aws_syncr_options=None):
         new_aws_syncr = self.configuration["aws_syncr"].clone()
         if new_aws_syncr_options:
             new_aws_syncr.update(new_aws_syncr_options)
-        new_cli_args["aws_syncr"] = new_aws_syncr
+        new_args_dict["aws_syncr"] = new_aws_syncr
 
-    def prepare(self, configuration_folder, cli_args, environment):
+    def prepare(self, configuration_folder, args_dict, environment):
         """Make a temporary configuration file from the files in our folder"""
         self.configuration_folder = configuration_folder
         if not os.path.isdir(configuration_folder):
@@ -56,17 +56,17 @@ class Collector(Collector):
                 contents = json.dumps({"includes": environment_files})
                 fle.write(contents.encode('utf-8'))
                 fle.flush()
-                cli_args['aws_syncr']['environment'] = os.path.split(environment)[-1]
-                super(Collector, self).prepare(fle.name, cli_args)
+                args_dict['aws_syncr']['environment'] = os.path.split(environment)[-1]
+                super(Collector, self).prepare(fle.name, args_dict)
 
     def find_missing_config(self, configuration):
         """Complain if we have no account information"""
         if "accounts" not in configuration:
             raise self.BadConfigurationErrorKls("accounts is a mandatory section and wasn't found")
 
-    def extra_prepare(self, configuration, cli_args):
+    def extra_prepare(self, configuration, args_dict):
         """Called before the configuration.converters are activated"""
-        aws_syncr = cli_args.pop("aws_syncr")
+        aws_syncr = args_dict.pop("aws_syncr")
 
         self.configuration.update(
             { "$@": aws_syncr.get("extra", "")
@@ -74,10 +74,10 @@ class Collector(Collector):
             , "templates": {}
             , "config_folder": self.configuration_folder
             }
-        , source = "<cli_args>"
+        , source = "<args_dict>"
         )
 
-    def extra_prepare_after_activation(self, configuration, cli_args):
+    def extra_prepare_after_activation(self, configuration, args_dict):
         """Setup our connection to amazon"""
         aws_syncr = configuration['aws_syncr']
         configuration["amazon"] = Amazon(configuration['aws_syncr'].environment, configuration['accounts'], debug=aws_syncr.debug, dry_run=aws_syncr.dry_run)
