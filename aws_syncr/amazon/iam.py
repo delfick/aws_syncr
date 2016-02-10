@@ -28,7 +28,7 @@ class Iam(AmazonMixin, object):
             role.load()
             return role
 
-    def create_role(self, name, trust_document, policies):
+    def create_role(self, name, trust_document, policies, attached_policies):
         with self.catch_boto_400("Couldn't Make role", "{0} assume document".format(name), trust_document, role=name):
             for _ in self.change("+", "role", role=name, document=trust_document):
                 kwargs = {"RoleName": name, "AssumeRolePolicyDocument": trust_document}
@@ -44,7 +44,9 @@ class Iam(AmazonMixin, object):
                         for _ in self.change("+", "role_policy", role=name, policy=policy_name, document=document):
                             self.resource.RolePolicy(name.split('/')[-1], policy_name).put(PolicyDocument=document)
 
-    def modify_role(self, role_info, name, trust_document, policies):
+        self.modify_attached_policies(name, attached_policies)
+
+    def modify_role(self, role_info, name, trust_document, policies, attached_policies):
         changes = list(Differ.compare_two_documents(json.dumps(role_info.assume_role_policy_document), trust_document))
         if changes:
             with self.catch_boto_400("Couldn't modify trust document", "{0} assume document".format(name), trust_document, role=name):
@@ -91,6 +93,7 @@ class Iam(AmazonMixin, object):
                             else:
                                 self.client.put_role_policy(RoleName=name.split("/")[-1], PolicyName=policy, PolicyDocument=document)
 
+            self.modify_attached_policies(name, attached_policies)
 
     def make_instance_profile(self, name):
         role_name = name.split('/')[-1]
@@ -121,6 +124,36 @@ class Iam(AmazonMixin, object):
                     pass
                 else:
                     raise
+
+    def modify_attached_policies(self, role_name, new_policies):
+        """Make sure this role has just the new policies"""
+        parts = role_name.split('/', 1)
+        if len(parts) == 2:
+            prefix, name = parts
+            prefix = "/{0}/".format(prefix)
+        else:
+            prefix = "/"
+            name = parts[0]
+
+        current_attached_policies = []
+        with self.ignore_missing():
+            current_attached_policies = self.client.list_attached_role_policies(RoleName=name, PathPrefix=prefix)
+            current_attached_policies = [p['PolicyArn'] for p in current_attached_policies["AttachedPolicies"]]
+
+        new_attached_policies = ["arn:aws:iam::aws:policy/{0}".format(p) for p in new_policies]
+
+        changes = list(Differ.compare_two_documents(current_attached_policies, new_attached_policies))
+        if changes:
+            with self.catch_boto_400("Couldn't modify attached policies", role=role_name):
+                for policy in new_attached_policies:
+                    if policy not in current_attached_policies:
+                        for _ in self.change("+", "attached_policy", role=role_name, policy=policy):
+                            self.client.attach_role_policy(RoleName=name, PolicyArn=policy)
+
+                for policy in current_attached_policies:
+                    if policy not in new_attached_policies:
+                        for _ in self.change("-", "attached_policy", role=role_name, changes=changes, policy=policy):
+                            self.client.detach_role_policy(RoleName=name, PolicyArn=policy)
 
     def assume_role_credentials(self, arn):
         """Return the environment variables for an assumed role"""

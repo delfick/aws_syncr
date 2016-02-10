@@ -43,6 +43,7 @@ class role_spec(object):
         return sb.create_spec(Role
             , name = sb.overridden(role_name)
             , description = formatted_string
+            , attached_policies = sb.listof(formatted_string)
             , trust = sb.container_spec(Document, sb.listof(trust_statement_spec('role', role_name)))
             , permission = sb.container_spec(Document, sb.listof(permission_statement_spec('role', role_name)))
             , make_instance_profile = sb.defaulted(sb.boolean(), False)
@@ -54,14 +55,15 @@ class Roles(dictobj):
     def sync_one(self, aws_syncr, amazon, role):
         """Make sure this role exists and has only what policies we want it to have"""
         trust_document = role.trust.document
+        attached_policies = role.attached_policies
         permission_document = role.permission.document
         policy_name = "syncr_policy_{0}".format(role.name.replace('/', '__'))
 
         role_info = amazon.iam.role_info(role.name)
         if not role_info:
-            amazon.iam.create_role(role.name, trust_document, policies={policy_name: permission_document})
+            amazon.iam.create_role(role.name, trust_document, policies={policy_name: permission_document}, attached_policies=attached_policies)
         else:
-            amazon.iam.modify_role(role_info, role.name, trust_document, policies={policy_name: permission_document})
+            amazon.iam.modify_role(role_info, role.name, trust_document, policies={policy_name: permission_document}, attached_policies=attached_policies)
 
         if role.make_instance_profile:
             amazon.iam.make_instance_profile(role.name)
@@ -74,6 +76,7 @@ class Role(dictobj):
 
       , "trust": "The trust document"
       , "permission": "Combination of allow_permission and deny_permission"
+      , "attached_policies": "List of managed policies to attach to the role"
       }
 
 def __register__():

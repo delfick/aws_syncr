@@ -13,6 +13,7 @@ from option_merge import MergedOptions
 from input_algorithms.meta import Meta
 from tests.helpers import TestCase
 from textwrap import dedent
+import uuid
 import mock
 
 describe TestCase, "role_spec":
@@ -25,10 +26,12 @@ describe TestCase, "role_spec":
 
     it "merges with a template":
         aws_syncr = mock.Mock(name="aws_syncr", environment="dev")
-        everything = {"templates": {"blah": {"description": "Access to all the things!", "allow_to_assume_me": {"iam": "root"}}}, "accounts": {"dev": "123"}, "aws_syncr": aws_syncr}
+        ap1 = str(uuid.uuid1())
+        ap2 = str(uuid.uuid1())
+        everything = {"templates": {"blah": {"description": "Access to all the things!", "attached_policies": [ap1, ap2], "allow_to_assume_me": {"iam": "root"}}}, "accounts": {"dev": "123"}, "aws_syncr": aws_syncr}
         result = role_spec().normalise(Meta(everything, [('roles', ""), ("tree", "")]), {"use": "blah"})
         trust1 = {'sid': NotSpecified, 'notresource': NotSpecified, 'notcondition': NotSpecified, 'resource': NotSpecified, 'notprincipal': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123:root'}], 'effect': NotSpecified, 'notaction': NotSpecified, 'action': NotSpecified}
-        self.assertEqual(result, Role(name="tree", description="Access to all the things!", permission=Document([]), trust=Document([trust1]), make_instance_profile=False))
+        self.assertEqual(result, Role(name="tree", description="Access to all the things!", permission=Document([]), trust=Document([trust1]), make_instance_profile=False, attached_policies=[ap1, ap2]))
 
     it "combines permission, deny_permission and allow_permission":
         # p# = orginal statement
@@ -86,7 +89,8 @@ describe TestCase, "Roles":
             self.trust = mock.Mock(name="trust")
             self.permission = mock.Mock(name="permission")
             self.make_instance_profile = mock.Mock(name="make_instance_profile")
-            self.role = Role(name=self.name, description=self.description, trust=self.trust, permission=self.permission, make_instance_profile=self.make_instance_profile)
+            self.attached_policies = mock.Mock(name="attached_policies")
+            self.role = Role(name=self.name, description=self.description, trust=self.trust, permission=self.permission, make_instance_profile=self.make_instance_profile, attached_policies=self.attached_policies)
             self.roles = Roles(items={self.name: self.role})
 
             self.amazon = mock.Mock(name="amazon")
@@ -101,7 +105,7 @@ describe TestCase, "Roles":
             iam.role_info.return_value = {}
             self.roles.sync_one(self.aws_syncr, self.amazon, self.role)
             iam.role_info.assert_called_once_with(self.name)
-            iam.create_role.assert_called_once_with(self.name, trust_document, policies={policy_name: permission_document})
+            iam.create_role.assert_called_once_with(self.name, trust_document, policies={policy_name: permission_document}, attached_policies=self.attached_policies)
 
             iam.make_instance_profile.assert_called_once_with(self.name)
 
@@ -121,7 +125,7 @@ describe TestCase, "Roles":
             iam.role_info.return_value = {"name": self.name}
             self.roles.sync_one(self.aws_syncr, self.amazon, self.role)
             iam.role_info.assert_called_once_with(self.name)
-            iam.modify_role.assert_called_once_with({"name": self.name}, self.name, trust_document, policies={policy_name: permission_document})
+            iam.modify_role.assert_called_once_with({"name": self.name}, self.name, trust_document, policies={policy_name: permission_document}, attached_policies=self.attached_policies)
 
             iam.make_instance_profile.assert_called_once_with(self.name)
 
@@ -153,14 +157,16 @@ describe TestCase, "__register__":
         self.p4 = {"resource": { "s3": "blah/path" }, "action": "s3:*"}
         self.p5 = {"resource": { "iam": "__self__" }, "action": "iam:*" }
 
-        self.stuff_spec = {"description": "stuff!", "disallow_to_assume_me": self.u1, "permission": [self.p1, self.p2], "allow_permission": self.p3, "make_instance_profile": True}
-        self.blah_spec = {"description": "blah!", "allow_to_assume_me": [self.u2, self.u3], "allow_permission": self.p4, "deny_permission": self.p5}
+        self.ap1 = str(uuid.uuid1())
+        self.ap2 = str(uuid.uuid1())
+
+        self.stuff_spec = {"description": "stuff!", "disallow_to_assume_me": self.u1, "permission": [self.p1, self.p2], "allow_permission": self.p3, "make_instance_profile": True, 'attached_policies': [self.ap1]}
+        self.blah_spec = {"description": "blah!", "allow_to_assume_me": [self.u2, self.u3], "allow_permission": self.p4, "deny_permission": self.p5, "attached_policies": [self.ap2]}
         self.spec = {"stuff_role": self.stuff_spec, "blah_role": self.blah_spec}
         self.everything = MergedOptions.using({"roles": self.spec, "accounts": {"dev": "123456789123", "stg": "445829383783"}, "aws_syncr": self.aws_syncr}, dont_prefix=[dictobj])
 
     it "works":
         result = __register__()[(21, "roles")].normalise(Meta(self.everything, []).at("roles"), MergedOptions.using(self.spec))
-        print(result.items.keys())
 
         stuff_trust = [
               TrustStatement(sid=NotSpecified, effect=NotSpecified, action=NotSpecified, notaction=NotSpecified, resource=NotSpecified, notresource=NotSpecified, notprincipal=[{"AWS":"arn:aws:iam::445829383783:role/bamboo/agent"}], principal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
@@ -180,8 +186,8 @@ describe TestCase, "__register__":
             , PermissionStatement(sid=NotSpecified, effect="Allow", action=["s3:*"], notaction=NotSpecified, resource=["arn:aws:s3:::blah/path"], notresource=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
             ]
 
-        stuff_role = Role(name="stuff_role", description="stuff!", permission=Document(stuff_permission), trust=Document(stuff_trust), make_instance_profile=True)
-        blah_role = Role(name="blah_role", description="blah!", permission=Document(blah_permission), trust=Document(blah_trust), make_instance_profile=False)
+        stuff_role = Role(name="stuff_role", description="stuff!", permission=Document(stuff_permission), trust=Document(stuff_trust), make_instance_profile=True, attached_policies=[self.ap1])
+        blah_role = Role(name="blah_role", description="blah!", permission=Document(blah_permission), trust=Document(blah_trust), make_instance_profile=False, attached_policies=[self.ap2])
 
         roles = Roles(items={"stuff_role": stuff_role, "blah_role": blah_role})
         for name, role in roles.items.items():
