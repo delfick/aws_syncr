@@ -137,7 +137,7 @@ class Iam(AmazonMixin, object):
 
         current_attached_policies = []
         with self.ignore_missing():
-            current_attached_policies = self.client.list_attached_role_policies(RoleName=name, PathPrefix=prefix)
+            current_attached_policies = self.client.list_attached_role_policies(RoleName=name)
             current_attached_policies = [p['PolicyArn'] for p in current_attached_policies["AttachedPolicies"]]
 
         new_attached_policies = ["arn:aws:iam::aws:policy/{0}".format(p) for p in new_policies]
