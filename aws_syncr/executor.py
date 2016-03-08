@@ -18,6 +18,7 @@ class App(App):
     cli_description = "Application that reads YAML and syncs definitions with amazon. Run without arguments to see what tasks are available. See http://aws-syncr.readthedocs.org/en/latest/ for more details"
     cli_environment_defaults = {"AWS_SYNCR_CONFIG_FOLDER": ("--config-folder", '.')}
     cli_positional_replacements = [('--environment'), ('--task', 'list_tasks'), ('--artifact', "")]
+    issue_tracker_link = "https://github.com/delfick/aws_syncr/issues"
 
     def execute(self, args_obj, args_dict, extra_args, logging_handler, no_docker=False):
         args_dict["aws_syncr"]["extra"] = extra_args
