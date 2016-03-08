@@ -15,7 +15,7 @@ log = logging.getLogger("aws_syncr.executor")
 
 class App(App):
     cli_categories = ['aws_syncr']
-    cli_description = "Application that reads YAML and syncs definitions with amazon"
+    cli_description = "Application that reads YAML and syncs definitions with amazon. Run without arguments to see what tasks are available. See http://aws-syncr.readthedocs.org/en/latest/ for more details"
     cli_environment_defaults = {"AWS_SYNCR_CONFIG_FOLDER": ("--config-folder", '.')}
     cli_positional_replacements = [('--environment'), ('--task', 'list_tasks'), ('--artifact', "")]
 
@@ -41,7 +41,7 @@ class App(App):
 
     def specify_other_args(self, parser, defaults):
         parser.add_argument("--config-folder"
-            , help = "The config folder containing the environments aws_syncr should care about"
+            , help = "The config folder containing accounts.yaml and each environment as a folder containing yaml files."
             , dest = "aws_syncr_config_folder"
             , **defaults["--config-folder"]
             )
@@ -59,7 +59,7 @@ class App(App):
             )
 
         parser.add_argument("--environment"
-            , help = "Environment to read options from"
+            , help = "Environment to read options from (i.e. the name of the folder as found in the --config-folder directory)"
             , dest = "aws_syncr_environment"
             , **defaults['--environment']
             )
