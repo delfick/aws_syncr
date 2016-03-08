@@ -61,6 +61,7 @@ class App(App):
         parser.add_argument("--environment"
             , help = "Environment to read options from (i.e. the name of the folder as found in the --config-folder directory)"
             , dest = "aws_syncr_environment"
+            , required = "default" not in defaults['--environment']
             , **defaults['--environment']
             )
 
