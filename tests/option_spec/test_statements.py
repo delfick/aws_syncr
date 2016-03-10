@@ -628,6 +628,23 @@ describe TestCase, "ResourcePolicyStatement":
             val = {key: {"AWS": "hi"}}
             self.assertEqual(self.statement.merge_principal(val, key), {"AWS": "hi"})
 
+        it "returns the string if it only finds one string":
+            key = 'principal'
+            val = {key: "*"}
+            self.assertEqual(self.statement.merge_principal(val, key), "*")
+
+        it "complains if it gets multiple strings":
+            key = 'principal'
+            val = {key: ["*", "blah"]}
+            with self.fuzzyAssertRaisesError(BadOption, "Please only specify a string for principal once", got=["*", "blah"]):
+                self.statement.merge_principal(val, key)
+
+        it "complains if it gets string and dictionaries":
+            key = 'principal'
+            val = {key: ["*", {"AWS": "stuff"}]}
+            with self.fuzzyAssertRaisesError(BadOption, "Please don't specify string principal and dictionary principal for the same policy", got=[["*"], {"AWS": ["stuff"]}]):
+                self.statement.merge_principal(val, key)
+
     describe "statement":
         it "returns a statement with all the capitalized versions of the keys":
             merge_principal = mock.Mock(name="merge_principal", side_effect=lambda v, k: v[k])

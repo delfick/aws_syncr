@@ -267,18 +267,31 @@ class ResourcePolicyStatement(dictobj):
             val[key] = [val[key]]
 
         result = {}
+        string_results = []
         for item in val[key]:
-            for service, lst in item.items():
-                if not isinstance(lst, list):
-                    lst = [lst]
-                if service in result:
-                    result[service].extend(lst)
-                else:
-                    result[service] = lst
+            if isinstance(item, six.string_types):
+                string_results.append(item)
+            else:
+                for service, lst in item.items():
+                    if not isinstance(lst, list):
+                        lst = [lst]
+                    if service in result:
+                        result[service].extend(lst)
+                    else:
+                        result[service] = lst
 
-        for service, lst in list(result.items()):
-            if len(lst) == 1:
-                result[service] = lst[0]
+        if len(string_results) == 1:
+            if result:
+                raise BadOption("Please don't specify string principal and dictionary principal for the same policy", got=[string_results, result])
+            return string_results[0]
+
+        elif len(string_results) > 1:
+            raise BadOption("Please only specify a string for principal once", got=string_results)
+
+        else:
+            for service, lst in list(result.items()):
+                if len(lst) == 1:
+                    result[service] = lst[0]
 
         return result
 
