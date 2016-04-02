@@ -55,6 +55,31 @@ describe TestCase, "buckets_spec":
         result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("stuff"), spec)
         self.assertEqual(result, Bucket(name="stuff", location="ap-southeast-2", permission=Document([]), tags={"lob": "amazing", "application": "bob"}))
 
+    it "creates an allow_permission when require_mfa_to_delete is True":
+        spec = MergedOptions.using({"location": "ap-southeast-2", "require_mfa_to_delete": True})
+        everything = MergedOptions.using({"buckets": {"my_bucket": spec}})
+        result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("my_bucket"), spec)
+        self.assertEqual(
+              result
+            , Bucket(
+                  name="my_bucket", location="ap-southeast-2", tags={}
+                , permission = Document(
+                    [ { 'sid': NotSpecified
+                      , 'notcondition': NotSpecified
+                      , 'notresource': NotSpecified
+                      , 'principal': NotSpecified
+                      , 'notprincipal': NotSpecified
+                      , 'notaction': NotSpecified
+
+                      , 'action': ['s3:DeleteBucket']
+                      , 'condition': {'Bool': {'aws:MultiFactorAuthPresent': True}}
+                      , 'resource': ["arn:aws:s3:::my_bucket", "arn:aws:s3:::my_bucket/*"]
+                      , 'effect': 'Allow'
+                      }
+                    ]
+                ))
+            )
+
 describe TestCase, "Buckets":
     describe "Syncing a bucket":
         before_each:
@@ -98,7 +123,7 @@ describe TestCase, "Registering buckets":
         self.p4 = {"resource": { "s3": "blah/path" }, "action": "s3:*", "principal": { "iam": "role", "users": ["bob", "sarah"] }}
         self.p5 = {"resource": { "s3": "__self__" }, "action": "s3:*", "principal": { "iam": "root" } }
 
-        self.stuff_spec = {"location": "ap-southeast-2", "tags": {"one": "1", "two": "2"}, "permission": [self.p1, self.p2], "allow_permission": self.p3}
+        self.stuff_spec = {"location": "ap-southeast-2", "tags": {"one": "1", "two": "2"}, "permission": [self.p1, self.p2], "allow_permission": self.p3, "require_mfa_to_delete": True}
         self.blah_spec = {"location": "us-east-1", "tags": {"three": "3", "four": "4"}, "allow_permission": self.p4, "deny_permission": self.p5}
         self.spec = {"stuff": self.stuff_spec, "blah": self.blah_spec}
         self.everything = MergedOptions.using({"buckets": self.spec, "accounts": {"dev": "123456789123", "stg": "445829383783"}, "aws_syncr": self.aws_syncr}, dont_prefix=[dictobj])
@@ -110,6 +135,7 @@ describe TestCase, "Registering buckets":
               {'notresource': NotSpecified, 'resource': '*', 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': 's3:*', 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': {"AWS": 'arn:aws:iam::123456789123:role/hi'}}
             , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::stuff', 'arn:aws:s3:::stuff/*'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:Get*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:role/blah'}]}
             , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah', 'arn:aws:s3:::blah/*'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:Head*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': ['arn:aws:sts::123456789123:assumed-role/yeap', 'arn:aws:sts::445829383783:assumed-role/yeap']}]}
+            , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::stuff', 'arn:aws:s3:::stuff/*'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:DeleteBucket'], 'notcondition': NotSpecified, 'condition': {"Bool": { "aws:MultiFactorAuthPresent": True } }, 'principal': NotSpecified }
             ])
         blah_permissions = Document([
               {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah', 'arn:aws:s3:::blah/*'], 'notaction': NotSpecified, 'effect': 'Deny', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ["s3:*"], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:root'}]}
@@ -169,6 +195,20 @@ describe TestCase, "Registering buckets":
                       "arn:aws:sts::123456789123:assumed-role/yeap",
                       "arn:aws:sts::445829383783:assumed-role/yeap"
                     ]
+                  }
+                },
+                {
+                  "Resource": [
+                    "arn:aws:s3:::stuff",
+                    "arn:aws:s3:::stuff/*"
+                  ],
+                  "Sid": "",
+                  "Action": "s3:DeleteBucket",
+                  "Effect": "Allow",
+                  "Condition": {
+                    "Bool": {
+                      "aws:MultiFactorAuthPresent": true
+                    }
                   }
                 }
               ]

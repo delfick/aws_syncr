@@ -28,6 +28,12 @@ class buckets_spec(Spec):
         deny_permission = sb.listof(resource_policy_dict(effect='Deny')).normalise(meta.at("deny_permission"), NotSpecified if "deny_permission" not in val else val["deny_permission"])
         allow_permission = sb.listof(resource_policy_dict(effect='Allow')).normalise(meta.at("allow_permission"), NotSpecified if "allow_permission" not in val else val["allow_permission"])
 
+        # require_mfa_to_delete is an alias for this permission
+        if val.get("require_mfa_to_delete") is True:
+            delete_policy = {"action": "s3:DeleteBucket", "resource": { "s3": "__self__" }, "Condition": { "Bool": { "aws:MultiFactorAuthPresent": True } } }
+            normalised_delete_policy = resource_policy_dict(effect='Allow').normalise(meta.at("require_mfa_to_delete"), delete_policy)
+            allow_permission.append(normalised_delete_policy)
+
         val = val.wrapped()
         val['permission'] = original_permission + deny_permission + allow_permission
         return sb.create_spec(Bucket
