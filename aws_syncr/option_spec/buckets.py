@@ -50,7 +50,7 @@ class website_statement_spec(statement_spec):
           (("sep", "_"), ("parts", ("index", "document"))): sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
         , (("sep", "_"), ("parts", ("error", "document"))): sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
         , (("sep", "_"), ("parts", ("redirect", "all", "requests", "to"))): sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
-        , (("sep", "_"), ("parts", ("routing", "rules"))): sb.dictionary_spec()
+        , (("sep", "_"), ("parts", ("routing", "rules"))): sb.listof(sb.dictionary_spec())
         }
     final_kls = lambda s, *args, **kwargs: WebsiteConfig(*args, **kwargs)
 
