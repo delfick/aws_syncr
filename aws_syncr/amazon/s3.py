@@ -38,7 +38,7 @@ class S3(AmazonMixin, object):
         if website:
             with self.catch_boto_400("Couldn't add website configuration", bucket=name):
                 for _ in self.change("+", "website_configuration", bucket=name):
-                    self.resource.BucketWebsite(name).put(website.document)
+                    self.resource.BucketWebsite(name).put(WebsiteConfiguration=website.document)
 
         if tags:
             with self.catch_boto_400("Couldn't add tags", bucket=name):
@@ -107,6 +107,7 @@ class S3(AmazonMixin, object):
         with self.ignore_missing():
             current_website.load()
             current = {"IndexDocument": current_website.index_document, "ErrorDocument": current_website.error_document, "RedirectAllRequestsTo": current_website.redirect_all_requests_to, "RoutingRules": current_website.routing_rules}
+            current = dict((key, val) for key, val in current.items() if val is not None)
 
         new_document = {}
         if website:
@@ -119,7 +120,7 @@ class S3(AmazonMixin, object):
                 symbol = '-' if not new_document else symbol
                 for _ in self.change(symbol, "website_configuration", bucket=name, changes=changes):
                     if new_document:
-                        current_website.put(new_document)
+                        current_website.put(WebsiteConfiguration=new_document)
                     else:
                         current_website.delete()
 

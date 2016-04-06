@@ -70,12 +70,14 @@ class WebsiteConfig(dictobj):
             else:
                 rart = {"HostName": parsed.netloc, "Protocol": parsed.scheme}
 
-        return {
+        result = {
               "IndexDocument": None if self.index_document is NotSpecified else {"Suffix": self.index_document}
             , "ErrorDocument": None if self.error_document is NotSpecified else {"Key": self.error_document}
             , "RedirectAllRequestsTo": rart
             , "RoutingRules": routing_rules
             }
+
+        return dict((key, val) for key, val in result.items() if val is not None)
 
 class Buckets(dictobj):
     fields = ['items']

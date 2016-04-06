@@ -122,27 +122,27 @@ describe TestCase, "WebsiteConfig":
     describe "Creating a document":
         it "works when there is just index_document":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"index_document": "index.html"})
-            self.assertEqual(config.document, {"IndexDocument": {"Suffix": "index.html"}, "ErrorDocument": None, "RedirectAllRequestsTo": None, "RoutingRules": None})
+            self.assertEqual(config.document, {"IndexDocument": {"Suffix": "index.html"}})
 
         it "works when there is just error_document":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "index.html"})
-            self.assertEqual(config.document, {"ErrorDocument": {"Key": "index.html"}, "IndexDocument": None, "RedirectAllRequestsTo": None, "RoutingRules": None})
+            self.assertEqual(config.document, {"ErrorDocument": {"Key": "index.html"}})
 
         it "works when there is just error_document and index_document":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "error.html", "index_document": "index.html"})
-            self.assertEqual(config.document, {"ErrorDocument": {"Key": "error.html"}, "IndexDocument": {"Suffix": "index.html"}, "RedirectAllRequestsTo": None, "RoutingRules": None})
+            self.assertEqual(config.document, {"ErrorDocument": {"Key": "error.html"}, "IndexDocument": {"Suffix": "index.html"}})
 
         it "works with redirect_all_requests_to being without a scheme":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"redirect_all_requests_to": "www.somewhere.com"})
-            self.assertEqual(config.document, {"ErrorDocument": None, "IndexDocument": None, "RedirectAllRequestsTo": {"HostName": "www.somewhere.com"}, "RoutingRules": None})
+            self.assertEqual(config.document, {"RedirectAllRequestsTo": {"HostName": "www.somewhere.com"}})
 
         it "works with redirect_all_requests_to being with a scheme":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"redirect_all_requests_to": "http://www.somewhere.com"})
-            self.assertEqual(config.document, {"ErrorDocument": None, "IndexDocument": None, "RedirectAllRequestsTo": {"Protocol": "http", "HostName": "www.somewhere.com"}, "RoutingRules": None})
+            self.assertEqual(config.document, {"RedirectAllRequestsTo": {"Protocol": "http", "HostName": "www.somewhere.com"}})
 
         it "doesn't modify routing_rules":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"routing_rules": {"Hello": "there", "And": "stuff"}})
-            self.assertEqual(config.document, {"ErrorDocument": None, "IndexDocument": None, "RedirectAllRequestsTo": None, "RoutingRules": {"Hello": "there", "And": "stuff"}})
+            self.assertEqual(config.document, {"RoutingRules": {"Hello": "there", "And": "stuff"}})
 
         it "works with all options":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "error.html", "index_document": "index.html", "routing_rules": {"Hello": "there", "And": "stuff"}, "redirect_all_requests_to": "https://somewhere.nice.com"})
