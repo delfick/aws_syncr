@@ -15,6 +15,7 @@ of your configuration.
   buckets:
     project-artifacts:
       location: ap-southeast-2
+      require_mfa_to_delete: true
   
       tags:
         application: Artifacts
@@ -57,9 +58,22 @@ bucket policy:
             "arn:aws:s3:::project-artifacts",
             "arn:aws:s3:::project-artifacts/*"
           ]
+        },
+        {
+          "Sid": "",
+          "Effect": "Allow",
+          'Resource': [
+            'arn:aws:s3:::project-artifacts',
+            'arn:aws:s3:::project-artifacts/*'
+          ],
+          'Action': 's3:DeleteBucket'
+          'Condition': {'Bool': {'aws:MultiFactorAuthPresent': True}},
         }
       ]
     }
+
+Note that the ``require_mfa_to_delete`` option is a shortcut for that last
+policy so that you require an mfa device to delete the bucket and anything in it.
 
 Available Keys
 --------------
@@ -68,6 +82,10 @@ You can use the following keys when defining a bucket:
 
 location
     The region to place the bucket in.
+
+require_mfa_to_delete:
+    Whether to include a permission to only allow deletion if an mfa device is
+    used
 
 tags
     A dictionary of {Key:Value} tags to attach to the bucket
@@ -81,3 +99,53 @@ Statements
 See the :ref:`statements` section for more information of what can go into the
 bucket policy.
 
+Website Configuration
+---------------------
+
+You can also specify website configuration for the bucket with the ``website``
+key:
+
+.. code-block:: json
+
+  buckets:
+    my_public_website.com:
+      location: ap-southeast-2
+
+      website:
+        redirect_all_requests_to: "www.my_public_website.com"
+
+    www.my_public_website.com:
+      location: ap-southeast-2
+
+      website:
+        index_document: index.html
+        error_document: error.html
+
+This will create two buckets, both with a website configuration. The first bucket
+``my_public_website.com`` will have a website configuration equal to:
+
+.. code-block:: json
+
+  { "IndexDocument": None
+  , "ErrorDocument": None
+  , "RedirectAllRequestsTo":
+    { "HostName": "www.my_public_website.com"
+    }
+  , "RoutingRules": None
+  }
+
+And the second bucket ``www.my_public_website.com`` will have this website config:
+
+.. code-block:: json
+
+  { "IndexDocument": { "Suffix": "index.html" }
+  , "ErrorDocument": { "Key": "error.html" }
+  , "RedirectAllRequestsTo": None
+  , "RoutingRules": None
+  }
+
+Note that ``RoutingRules`` can be specified as ``RoutingRules`` and will be put
+into the policy as is.
+
+For more information on what these configurations mean, see
+http://docs.aws.amazon.com/AmazonS3/latest/dev/HowDoIWebsiteConfiguration.html
