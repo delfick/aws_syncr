@@ -142,11 +142,11 @@ describe TestCase, "WebsiteConfig":
 
         it "doesn't modify routing_rules":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"routing_rules": {"Hello": "there", "And": "stuff"}})
-            self.assertEqual(config.document, {"RoutingRules": {"Hello": "there", "And": "stuff"}})
+            self.assertEqual(config.document, {"RoutingRules": [{"Hello": "there", "And": "stuff"}]})
 
         it "works with all options":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "error.html", "index_document": "index.html", "routing_rules": {"Hello": "there", "And": "stuff"}, "redirect_all_requests_to": "https://somewhere.nice.com"})
-            self.assertEqual(config.document, {"ErrorDocument": {"Key": "error.html"}, "IndexDocument": {"Suffix": "index.html"}, "RedirectAllRequestsTo": {"Protocol": "https", "HostName": "somewhere.nice.com"}, "RoutingRules": {"Hello": "there", "And": "stuff"}})
+            self.assertEqual(config.document, {"ErrorDocument": {"Key": "error.html"}, "IndexDocument": {"Suffix": "index.html"}, "RedirectAllRequestsTo": {"Protocol": "https", "HostName": "somewhere.nice.com"}, "RoutingRules": [{"Hello": "there", "And": "stuff"}]})
 
 describe TestCase, "Registering buckets":
     before_each:
