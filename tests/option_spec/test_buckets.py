@@ -1,6 +1,6 @@
 # coding: spec
 
-from aws_syncr.option_spec.buckets import buckets_spec, Buckets, Bucket, __register__, Document
+from aws_syncr.option_spec.buckets import buckets_spec, website_statement_spec, Buckets, Bucket, __register__, Document, WebsiteConfig
 from aws_syncr.option_spec.aws_syncr_specs import AwsSyncrSpec
 from aws_syncr.differ import Differ
 
@@ -24,7 +24,14 @@ describe TestCase, "buckets_spec":
     it "merges with a template":
         everything = {"templates": {"blah": {"location": "ap-southeast-2"}}}
         result = buckets_spec().normalise(Meta(everything, [('buckets', ""), ("tree", "")]), {"use": "blah"})
-        self.assertEqual(result, Bucket(name="tree", location="ap-southeast-2", permission=Document([]), tags={}))
+        self.assertEqual(result, Bucket(name="tree", location="ap-southeast-2", permission=Document([]), tags={}, website=NotSpecified))
+
+    it "recognises website":
+        result = buckets_spec().normalise(Meta({}, []).at("buckets").at("my_bucket"), MergedOptions.using({"location": "ap-southeast-2", "website": {"index_document": "blah.html"}}))
+        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}
+            , website = WebsiteConfig(index_document="blah.html", error_document=NotSpecified, redirect_all_requests_to=NotSpecified, routing_rules=NotSpecified)
+            )
+        )
 
     it "combines permission, deny_permission and allow_permission":
         # p# = orginal statement
@@ -53,7 +60,7 @@ describe TestCase, "buckets_spec":
         spec = MergedOptions.using({"location": "ap-southeast-2", "tags": {"lob": "{vars.lob}", "application": "{vars.application}"}})
         everything = MergedOptions.using({"vars": {"application": "bob", "lob": "amazing"}, "buckets": spec})
         result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("stuff"), spec)
-        self.assertEqual(result, Bucket(name="stuff", location="ap-southeast-2", permission=Document([]), tags={"lob": "amazing", "application": "bob"}))
+        self.assertEqual(result, Bucket(name="stuff", location="ap-southeast-2", permission=Document([]), tags={"lob": "amazing", "application": "bob"}, website=NotSpecified))
 
     it "creates an allow_permission when require_mfa_to_delete is True":
         spec = MergedOptions.using({"location": "ap-southeast-2", "require_mfa_to_delete": True})
@@ -62,7 +69,7 @@ describe TestCase, "buckets_spec":
         self.assertEqual(
               result
             , Bucket(
-                  name="my_bucket", location="ap-southeast-2", tags={}
+                  name="my_bucket", location="ap-southeast-2", tags={}, website=NotSpecified
                 , permission = Document(
                     [ { 'sid': NotSpecified
                       , 'notcondition': NotSpecified
@@ -85,9 +92,10 @@ describe TestCase, "Buckets":
         before_each:
             self.tags = mock.Mock(name="tags")
             self.name = mock.Mock(name="name")
+            self.website = mock.Mock(name="website")
             self.location = mock.Mock(name="location")
             self.permission = mock.Mock(name="permission")
-            self.bucket = Bucket(name=self.name, location=self.location, permission=self.permission, tags=self.tags)
+            self.bucket = Bucket(name=self.name, location=self.location, permission=self.permission, tags=self.tags, website=self.website)
             self.buckets = Buckets(items={self.name: self.bucket})
 
             self.amazon = mock.Mock(name="amazon")
@@ -99,7 +107,7 @@ describe TestCase, "Buckets":
             s3.bucket_info.return_value = {}
             self.buckets.sync_one(self.aws_syncr, self.amazon, self.bucket)
             s3.bucket_info.assert_called_once_with(self.name)
-            s3.create_bucket.assert_called_once_with(self.name, "", self.location, self.tags)
+            s3.create_bucket.assert_called_once_with(self.name, "", self.location, self.tags, self.website)
 
         it "can modify a bucket that does exist":
             bucket_info = mock.Mock(name="bucket_info")
@@ -108,7 +116,37 @@ describe TestCase, "Buckets":
             s3.bucket_info.return_value = bucket_info
             self.buckets.sync_one(self.aws_syncr, self.amazon, self.bucket)
             s3.bucket_info.assert_called_once_with(self.name)
-            s3.modify_bucket.assert_called_once_with(bucket_info, self.name, "", self.location, self.tags)
+            s3.modify_bucket.assert_called_once_with(bucket_info, self.name, "", self.location, self.tags, self.website)
+
+describe TestCase, "WebsiteConfig":
+    describe "Creating a document":
+        it "works when there is just index_document":
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"index_document": "index.html"})
+            self.assertEqual(config.document, {"IndexDocument": {"Suffix": "index.html"}, "ErrorDocument": None, "RedirectAllRequestsTo": None, "RoutingRules": None})
+
+        it "works when there is just error_document":
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "index.html"})
+            self.assertEqual(config.document, {"ErrorDocument": {"Key": "index.html"}, "IndexDocument": None, "RedirectAllRequestsTo": None, "RoutingRules": None})
+
+        it "works when there is just error_document and index_document":
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "error.html", "index_document": "index.html"})
+            self.assertEqual(config.document, {"ErrorDocument": {"Key": "error.html"}, "IndexDocument": {"Suffix": "index.html"}, "RedirectAllRequestsTo": None, "RoutingRules": None})
+
+        it "works with redirect_all_requests_to being without a scheme":
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"redirect_all_requests_to": "www.somewhere.com"})
+            self.assertEqual(config.document, {"ErrorDocument": None, "IndexDocument": None, "RedirectAllRequestsTo": {"HostName": "www.somewhere.com"}, "RoutingRules": None})
+
+        it "works with redirect_all_requests_to being with a scheme":
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"redirect_all_requests_to": "http://www.somewhere.com"})
+            self.assertEqual(config.document, {"ErrorDocument": None, "IndexDocument": None, "RedirectAllRequestsTo": {"Protocol": "http", "HostName": "www.somewhere.com"}, "RoutingRules": None})
+
+        it "doesn't modify routing_rules":
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"routing_rules": {"Hello": "there", "And": "stuff"}})
+            self.assertEqual(config.document, {"ErrorDocument": None, "IndexDocument": None, "RedirectAllRequestsTo": None, "RoutingRules": {"Hello": "there", "And": "stuff"}})
+
+        it "works with all options":
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "error.html", "index_document": "index.html", "routing_rules": {"Hello": "there", "And": "stuff"}, "redirect_all_requests_to": "https://somewhere.nice.com"})
+            self.assertEqual(config.document, {"ErrorDocument": {"Key": "error.html"}, "IndexDocument": {"Suffix": "index.html"}, "RedirectAllRequestsTo": {"Protocol": "https", "HostName": "somewhere.nice.com"}, "RoutingRules": {"Hello": "there", "And": "stuff"}})
 
 describe TestCase, "Registering buckets":
     before_each:
@@ -141,8 +179,8 @@ describe TestCase, "Registering buckets":
               {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah', 'arn:aws:s3:::blah/*'], 'notaction': NotSpecified, 'effect': 'Deny', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ["s3:*"], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:root'}]}
             , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah/path'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': ['arn:aws:iam::123456789123:role/bob', 'arn:aws:iam::123456789123:role/sarah']}]}
             ])
-        bucket1 = Bucket(name="stuff", location="ap-southeast-2", permission=stuff_permissions, tags={"one": "1", "two": "2"})
-        bucket2 = Bucket(name="blah", location="us-east-1", permission=blah_permissions, tags={"three": "3", "four": "4"})
+        bucket1 = Bucket(name="stuff", location="ap-southeast-2", permission=stuff_permissions, tags={"one": "1", "two": "2"}, website=NotSpecified)
+        bucket2 = Bucket(name="blah", location="us-east-1", permission=blah_permissions, tags={"three": "3", "four": "4"}, website=NotSpecified)
 
         buckets = Buckets(items={"stuff": bucket1, "blah": bucket2})
         for name, bucket in buckets.items.items():

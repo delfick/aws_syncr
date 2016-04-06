@@ -1,4 +1,4 @@
-from aws_syncr.option_spec.statements import resource_policy_statement_spec, resource_policy_dict
+from aws_syncr.option_spec.statements import resource_policy_statement_spec, resource_policy_dict, statement_spec
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.documents import Document
 from aws_syncr.errors import BadTemplate
@@ -8,6 +8,7 @@ from input_algorithms import spec_base as sb
 from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
 
+from six.moves.urllib.parse import urlparse
 from option_merge import MergedOptions
 import six
 
@@ -41,7 +42,40 @@ class buckets_spec(Spec):
             , location = sb.defaulted(formatted_string, None)
             , permission = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('bucket', bucket_name)))
             , tags = sb.dictof(sb.string_spec(), formatted_string)
+            , website = sb.optional_spec(website_statement_spec("website", "website"))
             ).normalise(meta, val)
+
+class website_statement_spec(statement_spec):
+    args = lambda s, self_type, self_name: {
+          (("sep", "_"), ("parts", ("index", "document"))): sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
+        , (("sep", "_"), ("parts", ("error", "document"))): sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
+        , (("sep", "_"), ("parts", ("redirect", "all", "requests", "to"))): sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
+        , (("sep", "_"), ("parts", ("routing", "rules"))): sb.dictionary_spec()
+        }
+    final_kls = lambda s, *args, **kwargs: WebsiteConfig(*args, **kwargs)
+
+class WebsiteConfig(dictobj):
+    fields = ['index_document', 'error_document', 'redirect_all_requests_to', 'routing_rules']
+
+    @property
+    def document(self):
+        rart = None
+        routing_rules = None
+        if self.routing_rules is not NotSpecified:
+            routing_rules = self.routing_rules
+        if self.redirect_all_requests_to is not NotSpecified and self.redirect_all_requests_to:
+            parsed = urlparse(self.redirect_all_requests_to)
+            if not parsed.scheme:
+                rart = {"HostName": parsed.path}
+            else:
+                rart = {"HostName": parsed.netloc, "Protocol": parsed.scheme}
+
+        return {
+              "IndexDocument": None if self.index_document is NotSpecified else {"Suffix": self.index_document}
+            , "ErrorDocument": None if self.error_document is NotSpecified else {"Key": self.error_document}
+            , "RedirectAllRequestsTo": rart
+            , "RoutingRules": routing_rules
+            }
 
 class Buckets(dictobj):
     fields = ['items']
@@ -53,11 +87,14 @@ class Buckets(dictobj):
         else:
             permission_document = ""
 
+        if bucket.website is NotSpecified:
+            bucket.website = None
+
         bucket_info = amazon.s3.bucket_info(bucket.name)
         if not bucket_info:
-            amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags)
+            amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags, bucket.website)
         else:
-            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags)
+            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags, bucket.website)
 
 class Bucket(dictobj):
     fields = {
@@ -65,6 +102,7 @@ class Bucket(dictobj):
         , 'location': "The region the bucket exists in"
         , 'permission': "The permission statements to attach to the bucket"
         , 'tags': "The tags to associate with the bucket"
+        , 'website': "Any website configuration associated with the bucket"
         }
 
 def __register__():

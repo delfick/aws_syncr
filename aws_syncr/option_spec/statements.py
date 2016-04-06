@@ -5,13 +5,20 @@ from input_algorithms.spec_base import NotSpecified, apply_validators
 from input_algorithms import spec_base as sb, validators
 from input_algorithms.dictobj import dictobj
 from option_merge import MergedOptions
+from collections import OrderedDict
 from itertools import chain
 import six
 
 def capitalize(arg):
+    sep = ""
+    if type(arg) is tuple and all(type(part) is tuple for part in arg):
+        arg = dict(arg)
+        sep = arg.get("sep", sep)
+        arg = arg["parts"]
+
     if type(arg) is tuple:
         capitalized = ''.join(part.capitalize() for part in arg)
-        arg = ''.join(arg)
+        arg = sep.join(arg)
     else:
         capitalized = arg.capitalize()
     return arg, capitalized
