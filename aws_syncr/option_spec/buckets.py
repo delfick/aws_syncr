@@ -1,7 +1,7 @@
 from aws_syncr.option_spec.statements import resource_policy_statement_spec, resource_policy_dict, statement_spec
 from aws_syncr.formatter import MergedOptionStringFormatter
+from aws_syncr.errors import BadTemplate, BadConfiguration
 from aws_syncr.option_spec.documents import Document
-from aws_syncr.errors import BadTemplate
 
 from input_algorithms.spec_base import NotSpecified
 from input_algorithms import spec_base as sb
@@ -58,7 +58,7 @@ class lifecycle_statement_spec(statement_spec):
         , "prefix" : s.formatted_string
         , "transition" : transition_spec("transition", "transition")
         , "expiration" : sb.or_spec(sb.integer_spec(), expiration_spec("expiration", "expiration"))
-        , "abort_incomplete_multipart_upload": made_up_dict(sb.integer_spec(), ("DaysAfterInitiation", ))
+        , (("sep", "_"), ("parts", ("abort", "incomplete", "multipart", "upload"))): made_up_dict(sb.integer_spec(), ("DaysAfterInitiation", ))
         , (("sep", "_"), ("parts", ("noncurrent", "version", "transition"))): capitalized_only_spec()
         , (("sep", "_"), ("parts", ("noncurrent", "version", "expiration"))): capitalized_only_spec()
         }
@@ -195,9 +195,13 @@ class LifeCycleConfig(dictobj):
         else:
             expiration_dict = self.expiration.as_dict()
 
+        enabled = True
+        if self.enabled is not NotSpecified:
+            enabled = self.enabled
+
         result = {
               "ID": self.id
-            , "Status": "Enabled" if self.enabled else "Disabled"
+            , "Status": "Enabled" if enabled else "Disabled"
             , "Prefix": self.prefix if self.prefix is not NotSpecified else ""
             , "Transition": self.transition.as_dict() if self.transition is not NotSpecified else None
             , "Expiration": expiration_dict
