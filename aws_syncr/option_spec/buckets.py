@@ -53,14 +53,42 @@ class logging_statement_spec(statement_spec):
         }
     final_kls = lambda s, *args, **kwargs: LoggingConfig(*args, **kwargs)
 
+class made_up_dict(sb.Spec):
+    def setup(self, spec, path):
+        self.spec = spec
+        self.path = path
+
+    def normalise(self, meta, val):
+        val = self.spec.normalise(meta, val)
+
+        start = result = {}
+        for part in self.path[:-1]:
+            result = result[part] = {}
+        result[self.path[-1]] = val
+
+        return start
+
 class website_statement_spec(statement_spec):
+    formatted_string = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
     args = lambda s, self_type, self_name: {
-          (("sep", "_"), ("parts", ("index", "document"))): sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
-        , (("sep", "_"), ("parts", ("error", "document"))): sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
-        , (("sep", "_"), ("parts", ("redirect", "all", "requests", "to"))): sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
+          (("sep", "_"), ("parts", ("index", "document"))): made_up_dict(s.formatted_string, ("Suffix", ))
+        , (("sep", "_"), ("parts", ("error", "document"))): made_up_dict(s.formatted_string, ("Key", ))
+        , (("sep", "_"), ("parts", ("redirect", "all", "requests", "to"))): redirect_all_requests_to_spec(s.formatted_string)
         , (("sep", "_"), ("parts", ("routing", "rules"))): sb.listof(sb.dictionary_spec())
         }
     final_kls = lambda s, *args, **kwargs: WebsiteConfig(*args, **kwargs)
+
+class redirect_all_requests_to_spec(sb.Spec):
+    def setup(self, spec):
+        self.spec = spec
+
+    def normalise_filled(self, meta, val):
+        val = self.spec.normalise(meta, val)
+        parsed = urlparse(val)
+        if not parsed.scheme:
+            return {"HostName": parsed.path}
+        else:
+            return {"HostName": parsed.netloc, "Protocol": parsed.scheme}
 
 class LoggingConfig(dictobj):
     fields = ["prefix", "destination"]
@@ -79,25 +107,14 @@ class WebsiteConfig(dictobj):
 
     @property
     def document(self):
-        rart = None
-        routing_rules = None
-        if self.routing_rules is not NotSpecified:
-            routing_rules = self.routing_rules
-        if self.redirect_all_requests_to is not NotSpecified and self.redirect_all_requests_to:
-            parsed = urlparse(self.redirect_all_requests_to)
-            if not parsed.scheme:
-                rart = {"HostName": parsed.path}
-            else:
-                rart = {"HostName": parsed.netloc, "Protocol": parsed.scheme}
-
         result = {
-              "IndexDocument": None if self.index_document is NotSpecified else {"Suffix": self.index_document}
-            , "ErrorDocument": None if self.error_document is NotSpecified else {"Key": self.error_document}
-            , "RedirectAllRequestsTo": rart
-            , "RoutingRules": routing_rules
+              "IndexDocument": self.index_document
+            , "ErrorDocument": self.error_document
+            , "RedirectAllRequestsTo": self.redirect_all_requests_to
+            , "RoutingRules": self.routing_rules
             }
 
-        return dict((key, val) for key, val in result.items() if val is not None)
+        return dict((key, val) for key, val in result.items() if val not in (None, NotSpecified))
 
 class Buckets(dictobj):
     fields = ['items']

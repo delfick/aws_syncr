@@ -30,7 +30,7 @@ describe TestCase, "buckets_spec":
     it "recognises website":
         result = buckets_spec().normalise(Meta({}, []).at("buckets").at("my_bucket"), MergedOptions.using({"location": "ap-southeast-2", "website": {"index_document": "blah.html"}}))
         self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, logging=None
-            , website = WebsiteConfig(index_document="blah.html", error_document=NotSpecified, redirect_all_requests_to=NotSpecified, routing_rules=NotSpecified)
+            , website = WebsiteConfig(index_document={"Suffix": "blah.html"}, error_document=NotSpecified, redirect_all_requests_to=NotSpecified, routing_rules=NotSpecified)
             )
         )
 
@@ -135,8 +135,14 @@ describe TestCase, "WebsiteConfig":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"index_document": "index.html"})
             self.assertEqual(config.document, {"IndexDocument": {"Suffix": "index.html"}})
 
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"IndexDocument": { "Suffix": "index.html2"}})
+            self.assertEqual(config.document, {"IndexDocument": {"Suffix": "index.html2"}})
+
         it "works when there is just error_document":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "index.html"})
+            self.assertEqual(config.document, {"ErrorDocument": {"Key": "index.html"}})
+
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"ErrorDocument": { "Key": "index.html"}})
             self.assertEqual(config.document, {"ErrorDocument": {"Key": "index.html"}})
 
         it "works when there is just error_document and index_document":
@@ -147,6 +153,9 @@ describe TestCase, "WebsiteConfig":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"redirect_all_requests_to": "www.somewhere.com"})
             self.assertEqual(config.document, {"RedirectAllRequestsTo": {"HostName": "www.somewhere.com"}})
 
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"RedirectAllRequestsTo": {"options": "yay"}})
+            self.assertEqual(config.document, {"RedirectAllRequestsTo": {"options": "yay"}})
+
         it "works with redirect_all_requests_to being with a scheme":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"redirect_all_requests_to": "http://www.somewhere.com"})
             self.assertEqual(config.document, {"RedirectAllRequestsTo": {"Protocol": "http", "HostName": "www.somewhere.com"}})
@@ -154,6 +163,9 @@ describe TestCase, "WebsiteConfig":
         it "doesn't modify routing_rules":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"routing_rules": {"Hello": "there", "And": "stuff"}})
             self.assertEqual(config.document, {"RoutingRules": [{"Hello": "there", "And": "stuff"}]})
+
+            config = website_statement_spec("", "").normalise(Meta({}, []), {"RoutingRules": {"more": "options"}})
+            self.assertEqual(config.document, {"RoutingRules": {"more": "options"}})
 
         it "works with all options":
             config = website_statement_spec("", "").normalise(Meta({}, []), {"error_document": "error.html", "index_document": "index.html", "routing_rules": {"Hello": "there", "And": "stuff"}, "redirect_all_requests_to": "https://somewhere.nice.com"})
