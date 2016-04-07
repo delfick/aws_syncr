@@ -7,9 +7,12 @@ from input_algorithms.spec_base import NotSpecified
 from input_algorithms import spec_base as sb
 from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
+from input_algorithms import validators
 
 from six.moves.urllib.parse import urlparse
 from option_merge import MergedOptions
+import hashlib
+import json
 import six
 
 class buckets_spec(Spec):
@@ -44,7 +47,47 @@ class buckets_spec(Spec):
             , tags = sb.dictof(sb.string_spec(), formatted_string)
             , website = sb.defaulted(website_statement_spec("website", "website"), None)
             , logging = sb.defaulted(logging_statement_spec("logging", "logging"), None)
+            , lifecycle = sb.defaulted(sb.listof(lifecycle_statement_spec("lifecycle", "lifecycle")), None)
             ).normalise(meta, val)
+
+class lifecycle_statement_spec(statement_spec):
+    formatted_string = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
+    args = lambda s, self_type, self_name: {
+          "id" : s.formatted_string
+        , "enabled": sb.boolean()
+        , "prefix" : s.formatted_string
+        , "transition" : transition_spec("transition", "transition")
+        , "expiration" : sb.or_spec(sb.integer_spec(), expiration_spec("expiration", "expiration"))
+        , "abort_incomplete_multipart_upload": made_up_dict(sb.integer_spec(), ("DaysAfterInitiation", ))
+        , (("sep", "_"), ("parts", ("noncurrent", "version", "transition"))): capitalized_only_spec()
+        , (("sep", "_"), ("parts", ("noncurrent", "version", "expiration"))): capitalized_only_spec()
+        }
+    final_kls = lambda s, *args, **kwargs: LifeCycleConfig(*args, **kwargs)
+
+class capitalized_only_spec(sb.Spec):
+    def normalise_filled(self, meta, val):
+        key = meta.key_names()["_key_name_0"]
+        raise BadConfiguration("Don't support lower case variant of key, use capitialized variant", key=key, meta=meta)
+
+class transition_spec(statement_spec):
+    args = lambda s, self_type, self_name: {
+          "days": sb.optional_spec(sb.integer_spec())
+        , "date": capitalized_only_spec()
+        , ("storage", "class"): sb.required(sb.string_choice_spec(["GLACIER", "STANDARD_IA"]))
+        }
+    conflicting = [('days', 'date')]
+    validators = [validators.has_either(["days", "Days", "date", "Date"])]
+    final_kls = lambda s, *args, **kwargs: LifecycleTransitionConfig(*args, **kwargs)
+
+class expiration_spec(statement_spec):
+    args = lambda s, self_type, self_name: {
+          "days": sb.optional_spec(sb.integer_spec())
+        , "date": capitalized_only_spec()
+        , (("sep", "_"), ("parts", ("expired", "object", "delete", "marker"))): sb.optional_spec(sb.boolean())
+        }
+    conflicting = [('days', 'date', 'expired_object_delete_marker')]
+    validators = [validators.has_either(["days", "Days", "date", "Date", "expired_object_delete_marker", "ExpiredObjectDeleteMarker"])]
+    final_kls = lambda s, *args, **kwargs: LifecycleExpirationConfig(*args, **kwargs)
 
 class logging_statement_spec(statement_spec):
     args = lambda s, self_type, self_name: {
@@ -90,6 +133,26 @@ class redirect_all_requests_to_spec(sb.Spec):
         else:
             return {"HostName": parsed.netloc, "Protocol": parsed.scheme}
 
+class LifecycleTransitionConfig(dictobj):
+    fields = ["days", "date", "storageclass"]
+
+    def as_dict(self):
+        if self.days is not NotSpecified:
+            return {"Days": self.days, "StorageClass": self.storageclass}
+        elif self.date is not NotSpecified:
+            return {"Date": self.date, "StorageClass": self.storageclass}
+
+class LifecycleExpirationConfig(dictobj):
+    fields = ["days", "date", "expired_object_delete_marker"]
+
+    def as_dict(self):
+        if self.days is not NotSpecified:
+            return {"Days": self.days}
+        elif self.date is not NotSpecified:
+            return {"Date": self.date}
+        else:
+            return {"ExpiredObjectDeleteMarker": self.expired_object_delete_marker}
+
 class LoggingConfig(dictobj):
     fields = ["prefix", "destination"]
 
@@ -116,6 +179,43 @@ class WebsiteConfig(dictobj):
 
         return dict((key, val) for key, val in result.items() if val not in (None, NotSpecified))
 
+class LifeCycleConfig(dictobj):
+    fields = ['id', 'enabled', 'prefix', 'transition', 'expiration', 'noncurrent_version_transition', 'noncurrent_version_expiration', 'abort_incomplete_multipart_upload']
+
+    @property
+    def rule(self):
+
+        # Expiration can be specified as just a number
+        # Or as a dict
+        # or not at all
+        if type(self.expiration) is int:
+            expiration_dict = {"Days": self.expiration}
+        elif self.expiration is NotSpecified:
+            expiration_dict = None
+        else:
+            expiration_dict = self.expiration.as_dict()
+
+        result = {
+              "ID": self.id
+            , "Status": "Enabled" if self.enabled else "Disabled"
+            , "Prefix": self.prefix if self.prefix is not NotSpecified else ""
+            , "Transition": self.transition.as_dict() if self.transition is not NotSpecified else None
+            , "Expiration": expiration_dict
+            , "NoncurrentVersionTransition": self.noncurrent_version_transition
+            , "NoncurrentVersionExpiration": self.noncurrent_version_expiration
+            , "AbortIncompleteMultipartUpload": self.abort_incomplete_multipart_upload
+            }
+
+        # Remove empty values
+        result = dict((key, val) for key, val in result.items() if val not in (NotSpecified, None, {}))
+
+        # Generate an ID so that we don't end up with a random aws ID
+        # So that dry-run shows no changes where there are indeed no changes!
+        if "ID" not in result:
+            result["ID"] = hashlib.md5(json.dumps(sorted(result.items())).encode('utf-8')).hexdigest()
+
+        return result
+
 class Buckets(dictobj):
     fields = ['items']
 
@@ -128,9 +228,9 @@ class Buckets(dictobj):
 
         bucket_info = amazon.s3.bucket_info(bucket.name)
         if not bucket_info:
-            amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags, bucket.website, bucket.logging)
+            amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags, bucket.website, bucket.logging, bucket.lifecycle)
         else:
-            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags, bucket.website, bucket.logging)
+            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags, bucket.website, bucket.logging, bucket.lifecycle)
 
 class Bucket(dictobj):
     fields = {
@@ -140,6 +240,7 @@ class Bucket(dictobj):
         , 'tags': "The tags to associate with the bucket"
         , 'website': "Any website configuration associated with the bucket"
         , 'logging': "Bucket logging configuration"
+        , 'lifecycle': "Bucket lifecycle configuration"
         }
 
 def __register__():

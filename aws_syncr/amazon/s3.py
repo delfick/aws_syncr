@@ -25,7 +25,7 @@ class S3(AmazonMixin, object):
             bucket.load()
             return bucket
 
-    def create_bucket(self, name, permission_document, location, tags, website, logging):
+    def create_bucket(self, name, permission_document, location, tags, website, logging, lifecycle):
         with self.catch_boto_400("Couldn't Make bucket", bucket=name):
             for _ in self.change("+", "bucket", bucket=name):
                 self.resource.create_bucket(Bucket=name, CreateBucketConfiguration={"LocationConstraint": location})
@@ -45,6 +45,11 @@ class S3(AmazonMixin, object):
                 for _ in self.change("+", "logging_configuration", bucket=name):
                     self.resource.BucketLogging(name).put(BucketLoggingStatus=logging.document)
 
+        if lifecycle:
+            with self.catch_boto_400("Couldn't add logging configuration", bucket=name):
+                for _ in self.change("+", "lifecycle_configuration", bucket=name):
+                    self.resource.BucketLifecycle(name).put(LifeCycleConfiguration=sorted(l.rule for l in lifecycle))
+
         if tags:
             with self.catch_boto_400("Couldn't add tags", bucket=name):
                 tag_set = [{"Value": val, "Key": key} for key, val in tags.items()]
@@ -52,7 +57,7 @@ class S3(AmazonMixin, object):
                 for _ in self.change("+", "bucket_tags", bucket=name, tags=tags, changes=changes):
                     self.resource.Bucket(name).Tagging().put(Tagging={"TagSet": tag_set})
 
-    def modify_bucket(self, bucket_info, name, permission_document, location, tags, website, logging):
+    def modify_bucket(self, bucket_info, name, permission_document, location, tags, website, logging, lifecycle):
         current_location = self.client.get_bucket_location(Bucket=name)['LocationConstraint']
         if current_location != location:
             raise AwsSyncrError("Sorry, can't change the location of a bucket!", wanted=location, currently=current_location, bucket=name)
@@ -86,6 +91,7 @@ class S3(AmazonMixin, object):
         self.modify_website(bucket_info, name, website)
         self.modify_logging(bucket_info, name, logging)
         self.modify_tags(bucket_info, name, tags)
+        self.modify_lifecycle(bucket_info, name, lifecycle)
 
     def modify_tags(self, bucket_info, name, tags):
         current_tags = bucket_info.Tagging()
@@ -154,4 +160,26 @@ class S3(AmazonMixin, object):
                         current_logging.put(BucketLoggingStatus=new_document)
                     else:
                         current_logging.put(BucketLoggingStatus={})
+
+    def modify_lifecycle(self, bucket_info, name, lifecycle):
+        current = []
+        with self.ignore_missing():
+            current_lifecycle = bucket_info.Lifecycle()
+            current_lifecycle.load()
+            current = current_lifecycle.rules
+
+        new_rules = []
+        if lifecycle:
+            new_rules = sorted([l.rule for l in lifecycle])
+
+        changes = list(Differ.compare_two_documents(json.dumps(current), json.dumps(new_rules)))
+        if changes:
+            with self.catch_boto_400("Couldn't modify lifecycle rules", bucket=name):
+                symbol = "+" if not current else 'M'
+                symbol = '-' if not new_rules else symbol
+                for _ in self.change(symbol, "lifecycle_configuration", bucket=name, changes=changes):
+                    if new_rules:
+                        current_lifecycle.put(LifecycleConfiguration={"Rules": new_rules})
+                    else:
+                        current_lifecycle.put(LifecycleConfiguration={"Rules": []})
 

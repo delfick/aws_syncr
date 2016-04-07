@@ -28,6 +28,7 @@ class statement_spec(sb.Spec):
     final_kls = None
     required = []
     validators = []
+    conflicting = []
     invalid_args = []
 
     def setup(self, self_type, self_name):
@@ -45,6 +46,7 @@ class statement_spec(sb.Spec):
 
         kwargs = self.make_kwargs(meta, args, normalised)
         self.complain_about_missing_args(meta, kwargs)
+        self.complain_about_conflicting_args(meta, kwargs)
 
         return self.final_kls(**kwargs)
 
@@ -87,6 +89,19 @@ class statement_spec(sb.Spec):
 
         if missing:
             raise BadPolicy("Statement is missing required properties", missing=missing, meta=meta)
+
+    def complain_about_conflicting_args(self, meta, kwargs):
+        found = None
+        conflicting_group = None
+
+        for group in self.conflicting:
+            found = [key for key in group if kwargs[key] is not NotSpecified]
+            if len(found) > 1:
+                conflicting_group = group
+                break
+
+        if conflicting_group and found:
+            raise BadPolicy("Statement has conflicting keys, please only choose one", only_one_from=group, found=found, meta=meta)
 
 class resource_policy_dict(sb.Spec):
     def setup(self, effect=NotSpecified):
