@@ -99,6 +99,27 @@ Statements
 See the :ref:`statements` section for more information of what can go into the
 bucket policy.
 
+Logging Configuration
+---------------------
+
+We can specify access logs for the bucket to be placed in another s3 bucket with
+the ``logging`` key:
+
+.. code-block:: json
+
+  buckets:
+    amazing_bucket:
+      location: ap-southeast-2
+
+      logging:
+        prefix: amazing_bucket/
+        destination: my_bucket_logs
+
+This will make access logs go into ``s3://my_bucket_logs/amazing_bucket``.
+
+See http://docs.aws.amazon.com/AmazonS3/latest/UG/ManagingBucketLogging.html for
+more information.
+
 Website Configuration
 ---------------------
 
