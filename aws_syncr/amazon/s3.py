@@ -25,7 +25,7 @@ class S3(AmazonMixin, object):
             bucket.load()
             return bucket
 
-    def create_bucket(self, name, permission_document, location, tags, website):
+    def create_bucket(self, name, permission_document, location, tags, website, logging):
         with self.catch_boto_400("Couldn't Make bucket", bucket=name):
             for _ in self.change("+", "bucket", bucket=name):
                 self.resource.create_bucket(Bucket=name, CreateBucketConfiguration={"LocationConstraint": location})
@@ -40,6 +40,11 @@ class S3(AmazonMixin, object):
                 for _ in self.change("+", "website_configuration", bucket=name):
                     self.resource.BucketWebsite(name).put(WebsiteConfiguration=website.document)
 
+        if logging:
+            with self.catch_boto_400("Couldn't add logging configuration", bucket=name):
+                for _ in self.change("+", "logging_configuration", bucket=name):
+                    self.resource.BucketLogging(name).put(BucketLoggingStatus=logging.document)
+
         if tags:
             with self.catch_boto_400("Couldn't add tags", bucket=name):
                 tag_set = [{"Value": val, "Key": key} for key, val in tags.items()]
@@ -47,7 +52,7 @@ class S3(AmazonMixin, object):
                 for _ in self.change("+", "bucket_tags", bucket=name, tags=tags, changes=changes):
                     self.resource.Bucket(name).Tagging().put(Tagging={"TagSet": tag_set})
 
-    def modify_bucket(self, bucket_info, name, permission_document, location, tags, website):
+    def modify_bucket(self, bucket_info, name, permission_document, location, tags, website, logging):
         current_location = self.client.get_bucket_location(Bucket=name)['LocationConstraint']
         if current_location != location:
             raise AwsSyncrError("Sorry, can't change the location of a bucket!", wanted=location, currently=current_location, bucket=name)
@@ -79,6 +84,7 @@ class S3(AmazonMixin, object):
                             bucket_info.Policy().put(Policy=permission_document)
 
         self.modify_website(bucket_info, name, website)
+        self.modify_logging(bucket_info, name, logging)
         self.modify_tags(bucket_info, name, tags)
 
     def modify_tags(self, bucket_info, name, tags):
@@ -123,4 +129,29 @@ class S3(AmazonMixin, object):
                         current_website.put(WebsiteConfiguration=new_document)
                     else:
                         current_website.delete()
+
+    def modify_logging(self, bucket_info, name, logging):
+        current_logging = bucket_info.Logging()
+        current = {}
+        with self.ignore_missing():
+            current_logging.load()
+            if current_logging.logging_enabled is None:
+                current = {}
+            else:
+                current = {"LoggingEnabled": current_logging.logging_enabled}
+
+        new_document = {}
+        if logging:
+            new_document = logging.document
+
+        changes = list(Differ.compare_two_documents(json.dumps(current), json.dumps(new_document)))
+        if changes:
+            with self.catch_boto_400("Couldn't modify logging configuration", bucket=name):
+                symbol = "+" if not current else 'M'
+                symbol = '-' if not new_document else symbol
+                for _ in self.change(symbol, "logging_configuration", bucket=name, changes=changes):
+                    if new_document:
+                        current_logging.put(BucketLoggingStatus=new_document)
+                    else:
+                        current_logging.put(BucketLoggingStatus={})
 

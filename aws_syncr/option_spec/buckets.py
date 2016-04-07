@@ -42,8 +42,16 @@ class buckets_spec(Spec):
             , location = sb.defaulted(formatted_string, None)
             , permission = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('bucket', bucket_name)))
             , tags = sb.dictof(sb.string_spec(), formatted_string)
-            , website = sb.optional_spec(website_statement_spec("website", "website"))
+            , website = sb.defaulted(website_statement_spec("website", "website"), None)
+            , logging = sb.defaulted(logging_statement_spec("logging", "logging"), None)
             ).normalise(meta, val)
+
+class logging_statement_spec(statement_spec):
+    args = lambda s, self_type, self_name: {
+          "prefix" : sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
+        , "destination" : sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
+        }
+    final_kls = lambda s, *args, **kwargs: LoggingConfig(*args, **kwargs)
 
 class website_statement_spec(statement_spec):
     args = lambda s, self_type, self_name: {
@@ -53,6 +61,18 @@ class website_statement_spec(statement_spec):
         , (("sep", "_"), ("parts", ("routing", "rules"))): sb.listof(sb.dictionary_spec())
         }
     final_kls = lambda s, *args, **kwargs: WebsiteConfig(*args, **kwargs)
+
+class LoggingConfig(dictobj):
+    fields = ["prefix", "destination"]
+
+    @property
+    def document(self):
+        return {
+              "LoggingEnabled":
+              { "TargetBucket": self.destination
+              , "TargetPrefix": self.prefix
+              }
+            }
 
 class WebsiteConfig(dictobj):
     fields = ['index_document', 'error_document', 'redirect_all_requests_to', 'routing_rules']
@@ -89,14 +109,11 @@ class Buckets(dictobj):
         else:
             permission_document = ""
 
-        if bucket.website is NotSpecified:
-            bucket.website = None
-
         bucket_info = amazon.s3.bucket_info(bucket.name)
         if not bucket_info:
-            amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags, bucket.website)
+            amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags, bucket.website, bucket.logging)
         else:
-            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags, bucket.website)
+            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags, bucket.website, bucket.logging)
 
 class Bucket(dictobj):
     fields = {
@@ -105,6 +122,7 @@ class Bucket(dictobj):
         , 'permission': "The permission statements to attach to the bucket"
         , 'tags': "The tags to associate with the bucket"
         , 'website': "Any website configuration associated with the bucket"
+        , 'logging': "Bucket logging configuration"
         }
 
 def __register__():
