@@ -170,3 +170,112 @@ into the policy as is.
 
 For more information on what these configurations mean, see
 http://docs.aws.amazon.com/AmazonS3/latest/dev/HowDoIWebsiteConfiguration.html
+
+Lifecycle Configuration
+-----------------------
+
+S3 buckets have a concept of a lifecycle configuration. This allows Amazon to
+automatically delete objects in your bucket based on particular conditions that
+you can set.
+
+.. code-block:: json
+
+  buckets:
+    my_amazing_bucket:
+      location: ap-southeast-2
+
+      lifecycle:
+        - expiration:
+            id: Delete objects after 30 days
+            days: 30
+
+Above is a config that will automatically delete objects in your bucket 30 days
+after it was created in the first place.
+
+Note that we can shorten this configuration to the following:
+
+.. code-block:: json
+  
+  buckets:
+    my_amazing_bucket:
+      location: ap-southeast-2
+
+      lifecycle:
+        expiration: 30
+
+Here we've defined only one lifecycle rule and hence don't have to put it in a list.
+
+Available keys
+++++++++++++++
+
+As with all config, the lowercase variant of the option is formatted in some way
+whereas the uppercase variant is not
+
+id, ID
+  A description of the rule. If one is not specified, aws_syncr will generate
+  one for you based on the other options you provide
+
+enabled, Status
+  Setting enabled to True will set "Status" to "Enabled", and setting it to False
+  will set "Status" to "Disabled"
+
+prefix, Prefix
+  The prefix of the objects in the bucket to apply this rule to. It defaults to
+  an empty string which means all the objects.
+
+transition, Transition
+  This creates a rule that will transition your objects into a different type of
+  storage.
+
+  days, Days
+    The number of days after creation that the objects are moved
+
+  Date
+    A specific date that the objects are moved. Note there is no lowercase
+    variant of this option.
+
+  storageclass, StorageClass
+    The type of storage to put the objects into. This is either GLACIER or
+    STANDARD_IA
+
+  Note that you can't specify days and date at the same time.
+
+expiration, Expiration
+  This creates a rule that will delete objects after particular conditions.
+
+  days, Days
+    The number of days after creation to delete the objects
+
+  Date
+    A specific date to delete the objects. Note there is no lowercase variant
+    of this option.
+
+  expired_object_delete_marker, ExpiredObjectDeleteMarker
+    Indicates whether Amazon S3 will remove a delete marker with no noncurrent
+    versions. If set to true, the delete marker will be expired; if set to false
+    the policy takes no action
+
+  Note that you can only specify one of these three options at a time.
+
+abort_incomplete_multipart_upload, AbortIncompleteMultipartUpload
+  The number of days after a multipart upload is created that it is aborted.
+
+NoncurrentVersionTransition
+  Container for the transition rule that describes when noncurrent objects
+  transition to the STANDARD_IA or GLACIER storage class.
+  
+  If your bucket is versioning-enabled (or versioning is suspended), you can set
+  this action to request that Amazon S3 transition noncurrent object versions to
+  the STANDARD_IA or GLACIER storage class at a specific period in the object's
+  lifetime.
+
+NoncurrentVersionExpiration
+  Specifies when noncurrent object versions expire. Upon expiration, Amazon S3
+  permanently deletes the noncurrent object versions. You set this lifecycle 
+  configuration action on a bucket that has versioning enabled (or suspended)
+  to request that Amazon S3 delete noncurrent object versions at a specific period
+  in the object's lifetime.
+
+For more information see
+http://boto3.readthedocs.org/en/latest/reference/services/s3.html#S3.Client.put_bucket_lifecycle
+

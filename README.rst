@@ -9,7 +9,7 @@ It currently supports:
 * Creation of instance profiles for an IAM role
 * Creation of s3 buckets
 * Modification of s3 bucket policy and s3 bucket tags
-* Modification of bucket website and logging configurations
+* Modification of bucket website, logging and lifecycle configuration
 * Creation and modification of KMS keys
 * Creation and modification of KMS key grants
 * Creation and modification of Lambda functions
