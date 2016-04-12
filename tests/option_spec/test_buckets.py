@@ -1,6 +1,13 @@
 # coding: spec
 
-from aws_syncr.option_spec.buckets import buckets_spec, logging_statement_spec, website_statement_spec, Buckets, Bucket, __register__, Document, WebsiteConfig, LoggingConfig
+from aws_syncr.option_spec.buckets import (
+      buckets_spec, logging_statement_spec, website_statement_spec, lifecycle_statement_spec
+    , expiration_spec, transition_spec
+    , Buckets, Bucket, Document, WebsiteConfig, LoggingConfig, LifeCycleConfig
+    , LifecycleExpirationConfig, LifecycleTransitionConfig
+    , __register__
+    )
+from aws_syncr.errors import BadConfiguration, BadPolicy, BadSpecValue
 from aws_syncr.option_spec.aws_syncr_specs import AwsSyncrSpec
 from aws_syncr.differ import Differ
 
@@ -12,6 +19,7 @@ from option_merge import MergedOptions
 from input_algorithms.meta import Meta
 from tests.helpers import TestCase
 from textwrap import dedent
+import itertools
 import uuid
 import mock
 
@@ -25,11 +33,11 @@ describe TestCase, "buckets_spec":
     it "merges with a template":
         everything = {"templates": {"blah": {"location": "ap-southeast-2"}}}
         result = buckets_spec().normalise(Meta(everything, [('buckets', ""), ("tree", "")]), {"use": "blah"})
-        self.assertEqual(result, Bucket(name="tree", location="ap-southeast-2", permission=Document([]), tags={}, website=None, logging=None))
+        self.assertEqual(result, Bucket(name="tree", location="ap-southeast-2", permission=Document([]), tags={}, website=None, logging=None, lifecycle=None))
 
     it "recognises website":
         result = buckets_spec().normalise(Meta({}, []).at("buckets").at("my_bucket"), MergedOptions.using({"location": "ap-southeast-2", "website": {"index_document": "blah.html"}}))
-        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, logging=None
+        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, logging=None, lifecycle=None
             , website = WebsiteConfig(index_document={"Suffix": "blah.html"}, error_document=NotSpecified, redirect_all_requests_to=NotSpecified, routing_rules=NotSpecified)
             )
         )
@@ -38,8 +46,47 @@ describe TestCase, "buckets_spec":
         prefix = str(uuid.uuid1())
         destination = str(uuid.uuid1())
         result = buckets_spec().normalise(Meta({}, []).at("buckets").at("my_bucket"), MergedOptions.using({"location": "ap-southeast-2", "logging": {"prefix": prefix, "destination": destination}}))
-        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, website=None
+        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, website=None, lifecycle=None
             , logging = LoggingConfig(prefix=prefix, destination=destination)
+            )
+        )
+
+    it "recognises lifecycle":
+        prefix = str(uuid.uuid1())
+        identity = str(uuid.uuid1())
+        noncurrent_version_transition = str(uuid.uuid1())
+        noncurrent_version_expiration = str(uuid.uuid1())
+
+        result = buckets_spec().normalise(
+              Meta({}, []).at("buckets").at("my_bucket")
+            , MergedOptions.using(
+                { "location": "ap-southeast-2"
+                , "lifecycle":
+                  { "id": identity
+                  , "prefix": prefix
+                  , "transition": {"Days": 6, "storageclass": "GLACIER"}
+                  , "expiration": {"Days": 30}
+                  , "NoncurrentVersionExpiration": noncurrent_version_expiration
+                  , "NoncurrentVersionTransition": noncurrent_version_transition
+                  , "abort_incomplete_multipart_upload": 70
+                  }
+                }
+              )
+            )
+
+        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, website=None, logging=None
+            , lifecycle = [
+                  LifeCycleConfig(
+                      identity
+                    , prefix = prefix
+                    , enabled = NotSpecified
+                    , transition = LifecycleTransitionConfig(date=NotSpecified, days=6, storageclass="GLACIER")
+                    , expiration = LifecycleExpirationConfig(date=NotSpecified, days=30, expired_object_delete_marker=NotSpecified)
+                    , noncurrent_version_expiration = noncurrent_version_expiration
+                    , noncurrent_version_transition = noncurrent_version_transition
+                    , abort_incomplete_multipart_upload = {"DaysAfterInitiation": 70}
+                    )
+                ]
             )
         )
 
@@ -70,7 +117,7 @@ describe TestCase, "buckets_spec":
         spec = MergedOptions.using({"location": "ap-southeast-2", "tags": {"lob": "{vars.lob}", "application": "{vars.application}"}})
         everything = MergedOptions.using({"vars": {"application": "bob", "lob": "amazing"}, "buckets": spec})
         result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("stuff"), spec)
-        self.assertEqual(result, Bucket(name="stuff", location="ap-southeast-2", permission=Document([]), tags={"lob": "amazing", "application": "bob"}, website=None, logging=None))
+        self.assertEqual(result, Bucket(name="stuff", location="ap-southeast-2", permission=Document([]), tags={"lob": "amazing", "application": "bob"}, website=None, logging=None, lifecycle=None))
 
     it "creates an allow_permission when require_mfa_to_delete is True":
         spec = MergedOptions.using({"location": "ap-southeast-2", "require_mfa_to_delete": True})
@@ -79,7 +126,7 @@ describe TestCase, "buckets_spec":
         self.assertEqual(
               result
             , Bucket(
-                  name="my_bucket", location="ap-southeast-2", tags={}, website=None, logging=None
+                  name="my_bucket", location="ap-southeast-2", tags={}, website=None, logging=None, lifecycle=None
                 , permission = Document(
                     [ { 'sid': NotSpecified
                       , 'notcondition': NotSpecified
@@ -105,8 +152,9 @@ describe TestCase, "Buckets":
             self.website = mock.Mock(name="website")
             self.logging = mock.Mock(name="logging")
             self.location = mock.Mock(name="location")
+            self.lifecycle = mock.Mock(name="lifecycle")
             self.permission = mock.Mock(name="permission")
-            self.bucket = Bucket(name=self.name, location=self.location, permission=self.permission, tags=self.tags, website=self.website, logging=self.logging)
+            self.bucket = Bucket(name=self.name, location=self.location, permission=self.permission, tags=self.tags, website=self.website, logging=self.logging, lifecycle=self.lifecycle)
             self.buckets = Buckets(items={self.name: self.bucket})
 
             self.amazon = mock.Mock(name="amazon")
@@ -118,7 +166,7 @@ describe TestCase, "Buckets":
             s3.bucket_info.return_value = {}
             self.buckets.sync_one(self.aws_syncr, self.amazon, self.bucket)
             s3.bucket_info.assert_called_once_with(self.name)
-            s3.create_bucket.assert_called_once_with(self.name, "", self.location, self.tags, self.website, self.logging)
+            s3.create_bucket.assert_called_once_with(self.name, "", self.location, self.tags, self.website, self.logging, self.lifecycle)
 
         it "can modify a bucket that does exist":
             bucket_info = mock.Mock(name="bucket_info")
@@ -127,7 +175,7 @@ describe TestCase, "Buckets":
             s3.bucket_info.return_value = bucket_info
             self.buckets.sync_one(self.aws_syncr, self.amazon, self.bucket)
             s3.bucket_info.assert_called_once_with(self.name)
-            s3.modify_bucket.assert_called_once_with(bucket_info, self.name, "", self.location, self.tags, self.website, self.logging)
+            s3.modify_bucket.assert_called_once_with(bucket_info, self.name, "", self.location, self.tags, self.website, self.logging, self.lifecycle)
 
 describe TestCase, "WebsiteConfig":
     describe "Creating a document":
@@ -179,6 +227,154 @@ describe TestCase, "LoggingConfig":
             config = logging_statement_spec("", "").normalise(Meta({}, []), {"prefix": prefix, "destination": destination})
             self.assertEqual(config.document, {"LoggingEnabled": { "TargetBucket": destination , "TargetPrefix": prefix } })
 
+describe TestCase, "LifecycleConfig":
+    describe "Creating a rule":
+        before_each:
+            self.meta = Meta({}, []).at("buckets").at("my_bucket").at("lifecycle")
+            self.id = str(uuid.uuid1())
+
+        it "turns expiration from an integer into a dictionary":
+            item = {"id": self.id, "expiration": 30}
+            result = lifecycle_statement_spec(None, None).normalise(self.meta, item).rule
+            self.assertEqual(result, {"Expiration": {"Days": 30}, "ID": self.id, "Prefix": "", "Status": "Enabled"})
+
+        it "defaults prefix to an empty string":
+            item = {"id": self.id}
+            result = lifecycle_statement_spec(None, None).normalise(self.meta, item).rule
+            self.assertEqual(result["Prefix"], "")
+
+        it "defaults status to Enabled":
+            item = {"id": self.id}
+            result = lifecycle_statement_spec(None, None).normalise(self.meta, item).rule
+            self.assertEqual(result["Status"], "Enabled")
+
+        it "sets status to Disabled if enabled is false":
+            item = {"id": self.id, "enabled": False}
+            result = lifecycle_statement_spec(None, None).normalise(self.meta, item).rule
+            self.assertEqual(result["Status"], "Disabled")
+
+        it "gets expiration and transition as_dict results":
+            transition_res = mock.Mock(name="transition_res")
+            transition_data = mock.Mock(name="expiration_data")
+            expiration_res = mock.Mock(name="expiration_res")
+            expiration_data = mock.Mock(name="expiration_data")
+
+            transition = mock.Mock(name="transition")
+            transition.as_dict.return_value = transition_res
+            transition.is_dict.return_value = True
+
+            expiration = mock.Mock(name="expiration")
+            expiration.as_dict.return_value = expiration_res
+            expiration.is_dict.return_value = True
+
+            fake_expiration_spec = mock.Mock(name="expiration_spec")
+            fake_expiration_spec.normalise.return_value = expiration
+
+            fake_transition_spec = mock.Mock(name="transition_spec")
+            fake_transition_spec.normalise.return_value = transition
+
+            item = {"id": self.id, "transition": transition_data, "expiration": expiration_data}
+
+            with mock.patch("aws_syncr.option_spec.buckets.expiration_spec", lambda *args: fake_expiration_spec):
+                with mock.patch("aws_syncr.option_spec.buckets.transition_spec", lambda *args: fake_transition_spec):
+                    result = lifecycle_statement_spec(None, None).normalise(self.meta, item).rule
+
+            self.assertEqual(result["Transition"], transition_res)
+            self.assertEqual(result["Expiration"], expiration_res)
+
+            fake_expiration_spec.normalise.assert_called_once_with(self.meta.at("expiration"), expiration_data)
+            fake_transition_spec.normalise.assert_called_once_with(self.meta.at("transition"), transition_data)
+
+        it "generates an ID based on the rest of the options":
+            item = {"enabled": False, "expiration" : 4}
+            result = lifecycle_statement_spec(None, None).normalise(self.meta, item).rule
+            result2 = lifecycle_statement_spec(None, None).normalise(self.meta, item).rule
+            self.assertEqual(result["ID"], result2["ID"])
+
+            item["expiration"] = 31
+            result3 = lifecycle_statement_spec(None, None).normalise(self.meta, item).rule
+            self.assertNotEqual(result["ID"], result3["ID"])
+
+describe TestCase, "LifecycleTransitionConfig":
+    describe "as_dict":
+        it "creates a dictionary with just the specified value":
+            ltc = LifecycleTransitionConfig(days=1, date=NotSpecified, storageclass="GLACIER")
+            self.assertEqual(ltc.as_dict(), {"Days": 1, "StorageClass": "GLACIER"})
+
+            ltc = LifecycleTransitionConfig(days=NotSpecified, date="astring", storageclass="STANDARD_IA")
+            self.assertEqual(ltc.as_dict(), {"Date": "astring", "StorageClass": "STANDARD_IA"})
+
+describe TestCase, "LifecycleExpirationConfig":
+    describe "as_dict":
+        it "creates a dictionary with just the specified value":
+            lec = LifecycleExpirationConfig(days=1, date=NotSpecified, expired_object_delete_marker=NotSpecified)
+            self.assertEqual(lec.as_dict(), {"Days": 1})
+
+            lec = LifecycleExpirationConfig(days=NotSpecified, date="astring", expired_object_delete_marker=NotSpecified)
+            self.assertEqual(lec.as_dict(), {"Date": "astring"})
+
+            lec = LifecycleExpirationConfig(days=NotSpecified, date=NotSpecified, expired_object_delete_marker=True)
+            self.assertEqual(lec.as_dict(), {"ExpiredObjectDeleteMarker": True})
+
+describe TestCase, "expiration_spec":
+    before_each:
+        self.meta = Meta({}, []).at("buckets").at("my_bucket").at("expiration")
+
+    it "only allows capitalized Date":
+        with self.fuzzyAssertRaisesError(BadConfiguration, "Don't support lower case variant of key, use capitialized variant", key="date"):
+            expiration_spec(None, None).normalise(self.meta, {"date": "sfdasf"})
+
+    it "only allows one of days, date and ExpiredObjectDeleteMarker":
+        for combination in itertools.combinations(("days", "Date", "expired_object_delete_marker"), 2):
+            with self.fuzzyAssertRaisesError(BadPolicy, "Statement has conflicting keys, please only choose one"):
+                expiration_spec(None, None).normalise(self.meta, dict((key, 1 if key[0].lower() == "d" else True) for key in combination))
+
+        with self.fuzzyAssertRaisesError(BadPolicy, "Statement has conflicting keys, please only choose one"):
+            expiration_spec(None, None).normalise(self.meta, {"days": 1, "Date": "adsf", "expired_object_delete_marker": True})
+
+    it "complains if not specifying one of the available options":
+        try:
+            expiration_spec(None, None).normalise(self.meta, {})
+        except BadSpecValue as error:
+            self.assertEqual(type(error.errors[0]), BadSpecValue)
+            self.assertEqual(error.errors[0].message, "Need to specify atleast one of the required keys")
+
+    it "creates a LifecyleExpirationConfig":
+        result = expiration_spec(None, None).normalise(self.meta, {"days": 1})
+        self.assertEqual(result, LifecycleExpirationConfig(days=1, date=NotSpecified, expired_object_delete_marker=NotSpecified))
+
+        result = expiration_spec(None, None).normalise(self.meta, {"Date": 1})
+        self.assertEqual(result, LifecycleExpirationConfig(days=NotSpecified, date=1, expired_object_delete_marker=NotSpecified))
+
+        result = expiration_spec(None, None).normalise(self.meta, {"expired_object_delete_marker": True})
+        self.assertEqual(result, LifecycleExpirationConfig(days=NotSpecified, date=NotSpecified, expired_object_delete_marker=True))
+
+describe TestCase, "transition_spec":
+    before_each:
+        self.meta = Meta({}, []).at("buckets").at("my_bucket").at("transition")
+
+    it "only allows capitalized Date":
+        with self.fuzzyAssertRaisesError(BadConfiguration, "Don't support lower case variant of key, use capitialized variant", key="date"):
+            transition_spec(None, None).normalise(self.meta, {"date": "sfdasf"})
+
+    it "only allows one of days and date":
+        with self.fuzzyAssertRaisesError(BadPolicy, "Statement has conflicting keys, please only choose one"):
+            transition_spec(None, None).normalise(self.meta, {"days": 1, "Date": "asdf", "storageclass": "GLACIER"})
+
+    it "complains if not specifying one of the available options":
+        try:
+            transition_spec(None, None).normalise(self.meta, {"storageclass": "GLACIER"})
+        except BadSpecValue as error:
+            self.assertEqual(type(error.errors[0]), BadSpecValue)
+            self.assertEqual(error.errors[0].message, "Need to specify atleast one of the required keys")
+
+    it "creates an LifecyleTransitionConfig":
+        result = transition_spec(None, None).normalise(self.meta, {"days": 1, "StorageClass": "GLACIER"})
+        self.assertEqual(result, LifecycleTransitionConfig(days=1, date=NotSpecified, storageclass="GLACIER"))
+
+        result = transition_spec(None, None).normalise(self.meta, {"Date": 1, "storageclass": "STANDARD_IA"})
+        self.assertEqual(result, LifecycleTransitionConfig(days=NotSpecified, date=1, storageclass="STANDARD_IA"))
+
 describe TestCase, "Registering buckets":
     before_each:
         # Need a valid folder to make aws_syncr
@@ -210,8 +406,8 @@ describe TestCase, "Registering buckets":
               {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah', 'arn:aws:s3:::blah/*'], 'notaction': NotSpecified, 'effect': 'Deny', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ["s3:*"], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:root'}]}
             , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah/path'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': ['arn:aws:iam::123456789123:role/bob', 'arn:aws:iam::123456789123:role/sarah']}]}
             ])
-        bucket1 = Bucket(name="stuff", location="ap-southeast-2", permission=stuff_permissions, tags={"one": "1", "two": "2"}, website=None, logging=None)
-        bucket2 = Bucket(name="blah", location="us-east-1", permission=blah_permissions, tags={"three": "3", "four": "4"}, website=None, logging=None)
+        bucket1 = Bucket(name="stuff", location="ap-southeast-2", permission=stuff_permissions, tags={"one": "1", "two": "2"}, website=None, logging=None, lifecycle=None)
+        bucket2 = Bucket(name="blah", location="us-east-1", permission=blah_permissions, tags={"three": "3", "four": "4"}, website=None, logging=None, lifecycle=None)
 
         buckets = Buckets(items={"stuff": bucket1, "blah": bucket2})
         for name, bucket in buckets.items.items():
