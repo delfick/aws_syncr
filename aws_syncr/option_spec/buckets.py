@@ -232,9 +232,9 @@ class Buckets(dictobj):
 
         bucket_info = amazon.s3.bucket_info(bucket.name)
         if not bucket_info:
-            amazon.s3.create_bucket(bucket.name, permission_document, bucket.location, bucket.tags, bucket.website, bucket.logging, bucket.lifecycle)
+            amazon.s3.create_bucket(bucket.name, permission_document, bucket)
         else:
-            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket.location, bucket.tags, bucket.website, bucket.logging, bucket.lifecycle)
+            amazon.s3.modify_bucket(bucket_info, bucket.name, permission_document, bucket)
 
 class Bucket(dictobj):
     fields = {

@@ -166,7 +166,7 @@ describe TestCase, "Buckets":
             s3.bucket_info.return_value = {}
             self.buckets.sync_one(self.aws_syncr, self.amazon, self.bucket)
             s3.bucket_info.assert_called_once_with(self.name)
-            s3.create_bucket.assert_called_once_with(self.name, "", self.location, self.tags, self.website, self.logging, self.lifecycle)
+            s3.create_bucket.assert_called_once_with(self.name, "", self.bucket)
 
         it "can modify a bucket that does exist":
             bucket_info = mock.Mock(name="bucket_info")
@@ -175,7 +175,7 @@ describe TestCase, "Buckets":
             s3.bucket_info.return_value = bucket_info
             self.buckets.sync_one(self.aws_syncr, self.amazon, self.bucket)
             s3.bucket_info.assert_called_once_with(self.name)
-            s3.modify_bucket.assert_called_once_with(bucket_info, self.name, "", self.location, self.tags, self.website, self.logging, self.lifecycle)
+            s3.modify_bucket.assert_called_once_with(bucket_info, self.name, "", self.bucket)
 
 describe TestCase, "WebsiteConfig":
     describe "Creating a document":

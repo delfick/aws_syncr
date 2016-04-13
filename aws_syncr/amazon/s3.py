@@ -25,7 +25,13 @@ class S3(AmazonMixin, object):
             bucket.load()
             return bucket
 
-    def create_bucket(self, name, permission_document, location, tags, website, logging, lifecycle):
+    def create_bucket(self, name, permission_document, bucket):
+        location = bucket.location
+        tags = bucket.tags
+        website = bucket.website
+        logging = bucket.logging
+        lifecycle = bucket.lifecycle
+
         with self.catch_boto_400("Couldn't Make bucket", bucket=name):
             for _ in self.change("+", "bucket", bucket=name):
                 self.resource.create_bucket(Bucket=name, CreateBucketConfiguration={"LocationConstraint": location})
@@ -57,7 +63,13 @@ class S3(AmazonMixin, object):
                 for _ in self.change("+", "bucket_tags", bucket=name, tags=tags, changes=changes):
                     self.resource.Bucket(name).Tagging().put(Tagging={"TagSet": tag_set})
 
-    def modify_bucket(self, bucket_info, name, permission_document, location, tags, website, logging, lifecycle):
+    def modify_bucket(self, bucket_info, name, permission_document, bucket):
+        location = bucket.location
+        tags = bucket.tags
+        website = bucket.website
+        logging = bucket.logging
+        lifecycle = bucket.lifecycle
+
         current_location = self.client.get_bucket_location(Bucket=name)['LocationConstraint']
         if current_location != location:
             raise AwsSyncrError("Sorry, can't change the location of a bucket!", wanted=location, currently=current_location, bucket=name)
