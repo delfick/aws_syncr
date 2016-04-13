@@ -2,6 +2,7 @@ from aws_syncr.option_spec.statements import resource_policy_statement_spec, res
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.errors import BadTemplate, BadConfiguration
 from aws_syncr.option_spec.documents import Document
+from aws_syncr.amazon import bucket_acls as Acls
 
 from input_algorithms.spec_base import NotSpecified
 from input_algorithms import spec_base as sb
@@ -40,8 +41,9 @@ class buckets_spec(Spec):
 
         val = val.wrapped()
         val['permission'] = original_permission + deny_permission + allow_permission
+
         return sb.create_spec(Bucket
-            , acl = sb.defaulted(formatted_string, None)
+            , acl = acl_spec()
             , name = sb.overridden(bucket_name)
             , location = sb.defaulted(formatted_string, None)
             , permission = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('bucket', bucket_name)))
@@ -50,6 +52,41 @@ class buckets_spec(Spec):
             , logging = sb.defaulted(logging_statement_spec("logging", "logging"), None)
             , lifecycle = sb.defaulted(sb.listof(lifecycle_statement_spec("lifecycle", "lifecycle")), None)
             ).normalise(meta, val)
+
+class acl_spec(sb.Spec):
+    def normalise(self, meta, val):
+        canned_acls = [
+              "private", "public-read", "public-read-write", "aws-exec-read"
+            , "authenticated-read", "log-delivery-write"
+            ]
+
+        acl = sb.defaulted(
+              sb.formatted(sb.string_choice_spec(canned_acls), formatter=MergedOptionStringFormatter)
+            , "private"
+            ).normalise(meta, val)
+
+        def ret(owner):
+            if acl == "private":
+                new_grants = [Acls.FullControl(owner)]
+
+            elif acl == "public-read":
+                new_grants = [Acls.FullControl(owner), Acls.Read(Acls.AllUsersGroup)]
+
+            elif acl == "public-read-write":
+                new_grants = [Acls.FullControl(owner), Acls.Read(Acls.AllUsersGroup), Acls.Write(Acls.AllUsersGroup)]
+
+            elif acl == "aws-exec-read":
+                new_grants = [Acls.FullControl(owner), Acls.Read(Acls.EC2Group)]
+
+            elif acl == "authenticated-read":
+                new_grants = [Acls.FullControl(owner), Acls.Read(Acls.AuthenticatedUsersGroup)]
+
+            elif acl == "log-delivery-write":
+                new_grants = [Acls.FullControl(owner), Acls.Write(Acls.LogDeliveryGroup), Acls.ReadACP(Acls.LogDeliveryGroup)]
+
+            return {"ACL": acl, "AccessControlPolicy": {"Grants": new_grants}}
+
+        return ret
 
 class lifecycle_statement_spec(statement_spec):
     formatted_string = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)

@@ -27,19 +27,40 @@ class S3(AmazonMixin, object):
 
     def create_bucket(self, name, permission_document, bucket):
         location = bucket.location
+        acl = bucket.acl
         tags = bucket.tags
         website = bucket.website
         logging = bucket.logging
         lifecycle = bucket.lifecycle
 
+        bucket = None
         with self.catch_boto_400("Couldn't Make bucket", bucket=name):
             for _ in self.change("+", "bucket", bucket=name):
-                self.resource.create_bucket(Bucket=name, CreateBucketConfiguration={"LocationConstraint": location})
+                bucket = self.resource.create_bucket(Bucket=name, CreateBucketConfiguration={"LocationConstraint": location})
 
         if permission_document:
             with self.catch_boto_400("Couldn't add policy", "{0} Permission document".format(name), permission_document, bucket=name):
                 for _ in self.change("+", "bucket_policy", bucket=name, document=permission_document):
                     self.resource.Bucket(name).Policy().put(Policy=permission_document)
+
+        owner = "__owner__"
+        if bucket:
+            owner = bucket.Acl().owner
+            if "ID" or "EmailAddress" in owner:
+                owner["Type"] = "CanonicalUser"
+            else:
+                owner["Type"] = "Group"
+
+        acl_options = acl(owner)
+        if "ACL" in acl_options:
+            if acl_options["ACL"] != "private":
+                with self.catch_boto_400("Couldn't configure acl", bucket=name, canned_acl=acl):
+                    for _ in self.change("+", "acl", bucket=name, acl=acl):
+                        self.resource.Bucket(name).BucketAcl().put(ACL=acl)
+        else:
+            with self.catch_boto_400("Couldn't configure acl", bucket=name):
+                for _ in self.change("+", "acl", bucket=name):
+                    self.resource.Bucket(name).BucketAcl().put(**acl_options)
 
         if website:
             with self.catch_boto_400("Couldn't add website configuration", bucket=name):
@@ -65,6 +86,7 @@ class S3(AmazonMixin, object):
 
     def modify_bucket(self, bucket_info, name, permission_document, bucket):
         location = bucket.location
+        acl = bucket.acl
         tags = bucket.tags
         website = bucket.website
         logging = bucket.logging
@@ -100,6 +122,7 @@ class S3(AmazonMixin, object):
                         for _ in self.change("M", "bucket_policy", bucket=name, changes=changes):
                             bucket_info.Policy().put(Policy=permission_document)
 
+        self.modify_acl(bucket_info, name, acl)
         self.modify_website(bucket_info, name, website)
         self.modify_logging(bucket_info, name, logging)
         self.modify_tags(bucket_info, name, tags)
@@ -194,4 +217,26 @@ class S3(AmazonMixin, object):
                         current_lifecycle.put(LifecycleConfiguration={"Rules": new_rules})
                     else:
                         current_lifecycle.put(LifecycleConfiguration={"Rules": []})
+
+    def modify_acl(self, bucket_info, name, acl):
+        current_acl = bucket_info.Acl()
+        current_acl.load()
+        current_grants = current_acl.grants
+
+        owner = current_acl.owner
+        if "ID" or "EmailAddress" in owner:
+            owner["Type"] = "CanonicalUser"
+        else:
+            owner["Type"] = "Group"
+
+        acl_options = acl(owner)
+        new_grants = acl_options["AccessControlPolicy"]["Grants"]
+        changes = list(Differ.compare_two_documents(json.dumps(current_grants), json.dumps(new_grants)))
+
+        if changes:
+            with self.catch_boto_400("Couldn't modify acl grants", bucket=name, canned_acl=acl):
+                symbol = "+" if not current_grants else 'M'
+                symbol = '-' if not new_grants else symbol
+                for _ in self.change(symbol, "acl_grants", bucket=name, changes=changes, canned_acl=acl):
+                    current_acl.put(ACL=acl)
 
