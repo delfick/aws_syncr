@@ -33,11 +33,11 @@ describe TestCase, "buckets_spec":
     it "merges with a template":
         everything = {"templates": {"blah": {"location": "ap-southeast-2"}}}
         result = buckets_spec().normalise(Meta(everything, [('buckets', ""), ("tree", "")]), {"use": "blah"})
-        self.assertEqual(result, Bucket(name="tree", location="ap-southeast-2", permission=Document([]), tags={}, website=None, logging=None, lifecycle=None))
+        self.assertEqual(result, Bucket(name="tree", location="ap-southeast-2", permission=Document([]), tags={}, website=None, logging=None, lifecycle=None, acl=None))
 
     it "recognises website":
         result = buckets_spec().normalise(Meta({}, []).at("buckets").at("my_bucket"), MergedOptions.using({"location": "ap-southeast-2", "website": {"index_document": "blah.html"}}))
-        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, logging=None, lifecycle=None
+        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, logging=None, lifecycle=None, acl=None
             , website = WebsiteConfig(index_document={"Suffix": "blah.html"}, error_document=NotSpecified, redirect_all_requests_to=NotSpecified, routing_rules=NotSpecified)
             )
         )
@@ -46,7 +46,7 @@ describe TestCase, "buckets_spec":
         prefix = str(uuid.uuid1())
         destination = str(uuid.uuid1())
         result = buckets_spec().normalise(Meta({}, []).at("buckets").at("my_bucket"), MergedOptions.using({"location": "ap-southeast-2", "logging": {"prefix": prefix, "destination": destination}}))
-        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, website=None, lifecycle=None
+        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, website=None, lifecycle=None, acl=None
             , logging = LoggingConfig(prefix=prefix, destination=destination)
             )
         )
@@ -74,7 +74,7 @@ describe TestCase, "buckets_spec":
               )
             )
 
-        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, website=None, logging=None
+        self.assertEqual(result, Bucket(name="my_bucket", location="ap-southeast-2", permission=Document([]), tags={}, website=None, logging=None, acl=None
             , lifecycle = [
                   LifeCycleConfig(
                       identity
@@ -117,7 +117,7 @@ describe TestCase, "buckets_spec":
         spec = MergedOptions.using({"location": "ap-southeast-2", "tags": {"lob": "{vars.lob}", "application": "{vars.application}"}})
         everything = MergedOptions.using({"vars": {"application": "bob", "lob": "amazing"}, "buckets": spec})
         result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("stuff"), spec)
-        self.assertEqual(result, Bucket(name="stuff", location="ap-southeast-2", permission=Document([]), tags={"lob": "amazing", "application": "bob"}, website=None, logging=None, lifecycle=None))
+        self.assertEqual(result, Bucket(name="stuff", location="ap-southeast-2", permission=Document([]), tags={"lob": "amazing", "application": "bob"}, website=None, logging=None, lifecycle=None, acl=None))
 
     it "creates an allow_permission when require_mfa_to_delete is True":
         spec = MergedOptions.using({"location": "ap-southeast-2", "require_mfa_to_delete": True})
@@ -126,7 +126,7 @@ describe TestCase, "buckets_spec":
         self.assertEqual(
               result
             , Bucket(
-                  name="my_bucket", location="ap-southeast-2", tags={}, website=None, logging=None, lifecycle=None
+                  name="my_bucket", location="ap-southeast-2", tags={}, website=None, logging=None, lifecycle=None, acl=None
                 , permission = Document(
                     [ { 'sid': NotSpecified
                       , 'notcondition': NotSpecified
@@ -147,6 +147,7 @@ describe TestCase, "buckets_spec":
 describe TestCase, "Buckets":
     describe "Syncing a bucket":
         before_each:
+            self.acl = mock.Mock(name="acl")
             self.tags = mock.Mock(name="tags")
             self.name = mock.Mock(name="name")
             self.website = mock.Mock(name="website")
@@ -154,7 +155,7 @@ describe TestCase, "Buckets":
             self.location = mock.Mock(name="location")
             self.lifecycle = mock.Mock(name="lifecycle")
             self.permission = mock.Mock(name="permission")
-            self.bucket = Bucket(name=self.name, location=self.location, permission=self.permission, tags=self.tags, website=self.website, logging=self.logging, lifecycle=self.lifecycle)
+            self.bucket = Bucket(name=self.name, location=self.location, permission=self.permission, tags=self.tags, website=self.website, logging=self.logging, lifecycle=self.lifecycle, acl=self.acl)
             self.buckets = Buckets(items={self.name: self.bucket})
 
             self.amazon = mock.Mock(name="amazon")
@@ -406,8 +407,8 @@ describe TestCase, "Registering buckets":
               {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah', 'arn:aws:s3:::blah/*'], 'notaction': NotSpecified, 'effect': 'Deny', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ["s3:*"], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': 'arn:aws:iam::123456789123:root'}]}
             , {'notresource': NotSpecified, 'resource': ['arn:aws:s3:::blah/path'], 'notaction': NotSpecified, 'effect': 'Allow', 'notprincipal': NotSpecified, 'sid': NotSpecified, 'action': ['s3:*'], 'notcondition': NotSpecified, 'condition': NotSpecified, 'principal': [{'AWS': ['arn:aws:iam::123456789123:role/bob', 'arn:aws:iam::123456789123:role/sarah']}]}
             ])
-        bucket1 = Bucket(name="stuff", location="ap-southeast-2", permission=stuff_permissions, tags={"one": "1", "two": "2"}, website=None, logging=None, lifecycle=None)
-        bucket2 = Bucket(name="blah", location="us-east-1", permission=blah_permissions, tags={"three": "3", "four": "4"}, website=None, logging=None, lifecycle=None)
+        bucket1 = Bucket(name="stuff", location="ap-southeast-2", permission=stuff_permissions, tags={"one": "1", "two": "2"}, website=None, logging=None, lifecycle=None, acl=None)
+        bucket2 = Bucket(name="blah", location="us-east-1", permission=blah_permissions, tags={"three": "3", "four": "4"}, website=None, logging=None, lifecycle=None, acl=None)
 
         buckets = Buckets(items={"stuff": bucket1, "blah": bucket2})
         for name, bucket in buckets.items.items():

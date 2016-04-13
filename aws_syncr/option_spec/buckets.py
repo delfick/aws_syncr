@@ -41,6 +41,7 @@ class buckets_spec(Spec):
         val = val.wrapped()
         val['permission'] = original_permission + deny_permission + allow_permission
         return sb.create_spec(Bucket
+            , acl = sb.defaulted(formatted_string, None)
             , name = sb.overridden(bucket_name)
             , location = sb.defaulted(formatted_string, None)
             , permission = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('bucket', bucket_name)))
@@ -239,6 +240,7 @@ class Buckets(dictobj):
 class Bucket(dictobj):
     fields = {
           'name': "Name of the bucket"
+        , 'acl': "The canned acl to give to this bucket"
         , 'location': "The region the bucket exists in"
         , 'permission': "The permission statements to attach to the bucket"
         , 'tags': "The tags to associate with the bucket"
