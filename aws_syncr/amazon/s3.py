@@ -48,7 +48,7 @@ class S3(AmazonMixin, object):
         if lifecycle:
             with self.catch_boto_400("Couldn't add logging configuration", bucket=name):
                 for _ in self.change("+", "lifecycle_configuration", bucket=name):
-                    self.resource.BucketLifecycle(name).put(LifeCycleConfiguration=sorted(l.rule for l in lifecycle))
+                    self.resource.BucketLifecycle(name).put(LifecycleConfiguration=sorted(l.rule for l in lifecycle))
 
         if tags:
             with self.catch_boto_400("Couldn't add tags", bucket=name):
