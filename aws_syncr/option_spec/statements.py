@@ -66,8 +66,11 @@ class statement_spec(sb.Spec):
         kwargs = {}
         for (arg, capitalized), spec in list(args.items()):
             kwargs[arg] = nsd(spec)
-            kwargs[capitalized] = sb.any_spec()
-        return args, sb.set_options(**kwargs)
+            if capitalized not in kwargs:
+                kwargs[capitalized] = sb.any_spec()
+
+        filtered_args = dict([((a, c), s) for (a, c), s in args.items() if a and a[0].islower()])
+        return filtered_args, sb.set_options(**kwargs)
 
     def make_kwargs(self, meta, args, normalised):
         kwargs = {}
@@ -95,7 +98,7 @@ class statement_spec(sb.Spec):
         conflicting_group = None
 
         for group in self.conflicting:
-            found = [key for key in group if kwargs[key] is not NotSpecified]
+            found = [key for key in group if kwargs.get(key, NotSpecified) is not NotSpecified]
             if len(found) > 1:
                 conflicting_group = group
                 break

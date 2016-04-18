@@ -199,6 +199,25 @@ describe TestCase, "statement_spec":
                 self.assertEqual(val.__contains__.mock_calls, [mock.call(arg), mock.call(capitalized), mock.call(arg)])
 
     describe "make_spec":
+        it "does not overwrite capitalized alternatives":
+            self_type = mock.Mock(name="self_type")
+            self_name = mock.Mock(name="self_name")
+
+            spec1 = sb.string_spec()
+            spec2 = sb.integer_spec()
+
+            def args_func(s, st, sn):
+                self.assertIs(st, self_type)
+                self.assertIs(sn, self_name)
+                return {('three', 'four'):spec1, "ThreeFour":spec2}
+
+            class sub(statement_spec):
+                args = args_func
+                final_kls = lambda s, *args, **kwargs: kwargs
+
+            res = sub(self_type, self_name).normalise(Meta({}, []), {"ThreeFour": "4"})
+            self.assertEqual(res, {"threefour": 4})
+
         it "returns dict of (arg, capitalized) to spec":
             self_type = mock.Mock(name="self_type")
             self_name = mock.Mock(name="self_name")
@@ -308,6 +327,22 @@ describe TestCase, "statement_spec":
             missing = ["One or ThreeFour or one or threefour", "Two or two"]
             with self.fuzzyAssertRaisesError(BadPolicy, "Statement is missing required properties", missing=missing, meta=meta):
                 sub("random", "random").complain_about_missing_args(meta, kwargs)
+
+    describe "complain_about_conflicting_args":
+        it "complains if we have conflicting args":
+            meta = mock.Mock(name='meta')
+            class sub(statement_spec):
+                args = lambda: []
+                final_kls = type
+                conflicting = [("one", "two"), ("four", "three")]
+
+            kwargs = {"one": 'v1', "two": "v2"}
+            with self.fuzzyAssertRaisesError(BadPolicy, "Statement has conflicting keys, please only choose one", only_one_from=("one", "two"), found=["one", "two"]):
+                sub("random", "random").complain_about_conflicting_args(meta, kwargs)
+
+            kwargs = {"one": 'v1', "three": "v2"}
+            sub("random", "random").complain_about_conflicting_args(meta, kwargs)
+            assert True, "Should not raise an error"
 
 describe TestCase, "policy_dict":
     __only_run_tests_in_children__ = True
