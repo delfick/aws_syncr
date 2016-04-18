@@ -43,7 +43,7 @@ class buckets_spec(Spec):
         val['permission'] = original_permission + deny_permission + allow_permission
 
         return sb.create_spec(Bucket
-            , acl = acl_spec()
+            , acl = sb.defaulted(sb.match_spec((six.string_types, canned_acl_spec()), (dict, acl_statement_spec('acl', 'acl'))), None)
             , name = sb.overridden(bucket_name)
             , location = sb.defaulted(formatted_string, None)
             , permission = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('bucket', bucket_name)))
@@ -53,7 +53,48 @@ class buckets_spec(Spec):
             , lifecycle = sb.defaulted(sb.listof(lifecycle_statement_spec("lifecycle", "lifecycle")), None)
             ).normalise(meta, val)
 
-class acl_spec(sb.Spec):
+class acl_grant_spec(statement_spec):
+    args = lambda s, self_type, self_name: {
+          "grantee": sb.or_spec(sb.string_choice_spec(["__owner__"]), acl_grantee_spec("grantee", "grantee"))
+        , "permission": sb.string_choice_spec(["READ", "WRITE", "READ_ACP", "WRITE_ACP", "FULL_CONTROL"])
+        }
+
+    required = ["grantee", "permission"]
+
+    def final_kls(self, *args, **kwargs):
+        def ret(owner):
+            result = {"Grantee": kwargs["grantee"], "Permission": kwargs["permission"]}
+            if isinstance(kwargs['grantee'], six.string_types):
+                if result["Grantee"] == "__owner__":
+                    result["Grantee"] = owner
+                else:
+                    raise BadOption("Don't know how to deal with this grantee", grantee=kwargs['grantee'])
+            return result
+        return ret
+
+class acl_grantee_spec(statement_spec):
+    formatted_string = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
+    args = lambda s, self_type, self_name: {
+          (("sep", "_"), ("parts", ("display", "name"))): s.formatted_string
+        , "id": s.formatted_string
+        , "type": sb.string_choice_spec(["Group", "CanonicalUser"])
+        , ("u", "r", "i"): s.formatted_string
+        }
+
+    required = ["type"]
+
+    def final_kls(self, *args, **kwargs):
+        result = {"ID": kwargs['id'], "DisplayName": kwargs["display_name"], "Type": kwargs["type"], "URI": kwargs["uri"]}
+        return dict((key, val) for key, val in result.items() if val is not NotSpecified)
+
+class acl_statement_spec(statement_spec):
+    args = lambda s, self_type, self_name: {
+          "grants": sb.listof(acl_grant_spec("grant", "grant"))
+        }
+    required = ["grants"]
+    final_kls = lambda s, *args, **kwargs: lambda owner: {"AccessControlPolicy": {"Grants": [g(owner) for g in kwargs["grants"]]}}
+
+class canned_acl_spec(sb.Spec):
     def normalise(self, meta, val):
         canned_acls = [
               "private", "public-read", "public-read-write", "aws-exec-read"
@@ -66,6 +107,7 @@ class acl_spec(sb.Spec):
             ).normalise(meta, val)
 
         def ret(owner):
+            """http://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl"""
             if acl == "private":
                 new_grants = [Acls.FullControl(owner)]
 
@@ -107,12 +149,18 @@ class capitalized_only_spec(sb.Spec):
         key = meta.key_names()["_key_name_0"]
         raise BadConfiguration("Don't support lower case variant of key, use capitialized variant", key=key, meta=meta)
 
+class lower_only_spec(sb.Spec):
+    def normalise_filled(self, meta, val):
+        key = meta.key_names()["_key_name_0"]
+        raise BadConfiguration("Don't support upper case variant of key, use lowercase variant", key=key, meta=meta)
+
 class transition_spec(statement_spec):
     args = lambda s, self_type, self_name: {
           "days": sb.optional_spec(sb.integer_spec())
         , "date": capitalized_only_spec()
-        , ("storage", "class"): sb.required(sb.string_choice_spec(["GLACIER", "STANDARD_IA"]))
+        , ("storage", "class"): sb.string_choice_spec(["GLACIER", "STANDARD_IA"])
         }
+    required = ["storageclass"]
     conflicting = [('days', 'date')]
     validators = [validators.has_either(["days", "Days", "date", "Date"])]
     final_kls = lambda s, *args, **kwargs: LifecycleTransitionConfig(*args, **kwargs)
@@ -129,9 +177,10 @@ class expiration_spec(statement_spec):
 
 class logging_statement_spec(statement_spec):
     args = lambda s, self_type, self_name: {
-          "prefix" : sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
-        , "destination" : sb.required(sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter))
+          "prefix" : sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
+        , "destination" : sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter)
         }
+    required = ["prefix", "destination"]
     final_kls = lambda s, *args, **kwargs: LoggingConfig(*args, **kwargs)
 
 class made_up_dict(sb.Spec):

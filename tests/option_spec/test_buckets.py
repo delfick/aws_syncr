@@ -144,6 +144,53 @@ describe TestCase, "buckets_spec":
                 ))
             )
 
+    describe "Recognising acl":
+        describe "as a string":
+            it "converts the acl into grants":
+                owner = mock.Mock(name="owner")
+                spec = MergedOptions.using({"location": "ap-southeast-2", "acl": "private"})
+                everything = MergedOptions.using({"buckets": {"my_bucket": spec}})
+                result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("my_bucket"), spec)
+                final = result.acl(owner)
+                self.assertEqual(final, {"ACL": "private", "AccessControlPolicy": {"Grants": [{"Grantee": owner, "Permission": "FULL_CONTROL"}]}})
+
+            it "works for all the valid acls":
+                owner = mock.Mock(name="owner")
+                canned_acls = [
+                      "private", "public-read", "public-read-write", "aws-exec-read"
+                    , "authenticated-read", "log-delivery-write"
+                    ]
+
+                for acl in canned_acls:
+                    spec = MergedOptions.using({"location": "ap-southeast-2", "acl": acl})
+                    everything = MergedOptions.using({"buckets": {"my_bucket": spec}})
+                    result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("my_bucket"), spec)
+                    final = result.acl(owner)
+                    self.assertEqual(final["ACL"], acl)
+                    self.assertEqual(sorted(final.keys()), sorted(["ACL", "AccessControlPolicy"]))
+                    self.assertEqual(sorted(final["AccessControlPolicy"].keys()), sorted(["Grants"]))
+
+                    for grant in final["AccessControlPolicy"]["Grants"]:
+                        self.assertEqual(sorted(grant.keys()), sorted(['Grantee', 'Permission']))
+                        assert grant["Permission"] in ["FULL_CONTROL", "READ", "WRITE", "READ_ACP", "WRITE_ACP"]
+
+        describe "as a dictionary":
+            it "allows grantee as __owner__":
+                owner = mock.Mock(name="owner")
+                spec = MergedOptions.using({"location": "ap-southeast-2", "acl": {"grants": {"grantee": "__owner__", "permission": "READ"}}})
+                everything = MergedOptions.using({"buckets": {"my_bucket": spec}})
+                result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("my_bucket"), spec)
+                final = result.acl(owner)
+                self.assertEqual(final, {"AccessControlPolicy": {"Grants": [{"Grantee": owner, "Permission": "READ"}]}})
+
+            it "allows grantee as a dictionary":
+                owner = mock.Mock(name="owner")
+                spec = MergedOptions.using({"location": "ap-southeast-2", "acl": {"grants": {"grantee": {"display_name": "bob", "id": "0389387387038798", "type": "CanonicalUser"}, "permission": "READ"}}})
+                everything = MergedOptions.using({"buckets": {"my_bucket": spec}})
+                result = buckets_spec().normalise(Meta(everything, []).at("buckets").at("my_bucket"), spec)
+                final = result.acl(owner)
+                self.assertEqual(final, {"AccessControlPolicy": {"Grants": [{"Grantee": {"DisplayName": "bob", "ID": "0389387387038798", "Type": "CanonicalUser"}, "Permission": "READ"}]}})
+
 describe TestCase, "Buckets":
     describe "Syncing a bucket":
         before_each:

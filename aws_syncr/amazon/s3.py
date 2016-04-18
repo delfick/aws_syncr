@@ -221,7 +221,7 @@ class S3(AmazonMixin, object):
     def modify_acl(self, bucket_info, name, acl):
         current_acl = bucket_info.Acl()
         current_acl.load()
-        current_grants = current_acl.grants
+        current_grants = {"AccessControlPolicy": {"Grants": current_acl.grants}}
 
         owner = current_acl.owner
         if "ID" or "EmailAddress" in owner:
@@ -230,13 +230,16 @@ class S3(AmazonMixin, object):
             owner["Type"] = "Group"
 
         acl_options = acl(owner)
-        new_grants = acl_options["AccessControlPolicy"]["Grants"]
-        changes = list(Differ.compare_two_documents(json.dumps(current_grants), json.dumps(new_grants)))
+        if "ACL" in acl_options:
+            current_grants["ACL"] = acl_options["ACL"]
+        changes = list(Differ.compare_two_documents(json.dumps(current_grants), json.dumps(acl_options)))
 
         if changes:
             with self.catch_boto_400("Couldn't modify acl grants", bucket=name, canned_acl=acl):
                 symbol = "+" if not current_grants else 'M'
-                symbol = '-' if not new_grants else symbol
+                symbol = '-' if not acl_options else symbol
                 for _ in self.change(symbol, "acl_grants", bucket=name, changes=changes, canned_acl=acl):
-                    current_acl.put(ACL=acl)
+                    if "ACL" in acl_options and "AccessControlPolicy" in acl_options:
+                        del acl_options["AccessControlPolicy"]
+                    current_acl.put(**acl_options)
 
