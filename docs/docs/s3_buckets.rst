@@ -14,6 +14,7 @@ of your configuration.
 
   buckets:
     project-artifacts:
+      acl: private
       location: ap-southeast-2
       require_mfa_to_delete: true
   
@@ -31,8 +32,8 @@ of your configuration.
                 - ci/project2-deployer
  
 This will create a bucket called ``project-artifacts`` in the ``ap-southeast-2``
-region with an ``application`` tag equal to ``Artifacts`` and the following
-bucket policy:
+region a ``private`` canned acl; an ``application`` tag equal to ``Artifacts``
+and the following bucket policy:
 
 .. code-block:: json
 
@@ -80,18 +81,27 @@ Available Keys
 
 You can use the following keys when defining a bucket:
 
+acl
+  The access control list associated with the bucket.
+
 location
-    The region to place the bucket in.
+  The region to place the bucket in.
 
 require_mfa_to_delete:
-    Whether to include a permission to only allow deletion if an mfa device is
-    used
+  Whether to include a permission to only allow deletion if an mfa device is
+  used
 
 tags
-    A dictionary of {Key:Value} tags to attach to the bucket
+  A dictionary of {Key:Value} tags to attach to the bucket
+
+website
+  Configuration associated with treating this bucket as a website
+
+lifecycle
+  Configuration around retention and transition policies
 
 permission, allow_permission, deny_permission
-    Used to specify statements for the bucket policy
+  Used to specify statements for the bucket policy
 
 Statements
 ----------
@@ -278,4 +288,75 @@ NoncurrentVersionExpiration
 
 For more information see
 http://boto3.readthedocs.org/en/latest/reference/services/s3.html#S3.Client.put_bucket_lifecycle
+
+Access Control Lists (ACLs)
+---------------------------
+
+S3 buckets are special in that they have their own ACL system that lets you grant
+permission to particular entities.
+
+.. note:: These are separate to bucket policies!
+
+There are two ways of specifying these acls, either manually or by specifying a
+canned ACL.
+
+Using the canned ACL is the easiest way and likely the only way you need to
+consider.
+
+Simply add ``acl`` to your bucket configuration as one of ``private``
+, ``public-read``, ``public-read-write``, ``aws-exec-read``
+, ``authenticated-read`` or ``log-delivery-write``. To understand what each of
+these mean, see http://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl
+
+.. code-block:: json
+
+  buckets:
+    my_bucket:
+      acl: authenticated-read
+      location: ap-southeast-2
+
+The manual way
+++++++++++++++
+
+If the canned acls are not what you want, you can manually specify the grants!
+
+.. code-block:: json
+
+  buckets:
+    my_bucket:
+      acl:
+        grants:
+          - grantee: __owner__
+            permission: READ
+
+          - grantee:
+              display_name: za_team
+              id: 6aa5a366c34c1cbe25dc49211496e913e0351eb0e8c37aa3477e40942ec6b97c
+              type: CanonicalUser
+            permission: WRITE
+
+          - grantee:
+              uri: "http://acs.amazonaws.com/groups/global/AllUsers"
+              type: Group
+            permission: READ
+
+This example shows the three ways of specifying grantee. Either you use the string
+``__owner__`` which will correspond to the current owner of the bucket.
+
+Alternatively you may specify the ``display_name`` and ``id`` for the grantee,
+with ``type`` of ``CanonicalUser``.
+
+Or you may specify ``uri`` and ``type`` as ``Group``.
+
+Owner is a strange concept in Amazon land that requires root access to get.
+See http://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#specifying-grantee
+for more details.
+
+The permission is one of ``READ``, ``WRITE``, ``READ_ACP``, ``WRITE_ACP`` and
+``FULL_CONTROL``. See http://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#permissions
+for more information.
+
+.. note:: You may not specify the owner of the bucket. This is a deliberate
+  design decision to reduce the possibility of making a change that cannot be
+  reversed. This may be changed in the future if the need arises and is asked for.
 
