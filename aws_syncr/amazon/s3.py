@@ -223,7 +223,7 @@ class S3(AmazonMixin, object):
         current_acl.load()
         current_grants = {"AccessControlPolicy": {"Grants": current_acl.grants}}
 
-        owner = current_acl.owner
+        owner = dict(current_acl.owner)
         if "ID" or "EmailAddress" in owner:
             owner["Type"] = "CanonicalUser"
         else:
@@ -241,5 +241,11 @@ class S3(AmazonMixin, object):
                 for _ in self.change(symbol, "acl_grants", bucket=name, changes=changes, canned_acl=acl):
                     if "ACL" in acl_options and "AccessControlPolicy" in acl_options:
                         del acl_options["AccessControlPolicy"]
+                    else:
+                        # owner must be specified
+                        # But we don't allow specifying owner in aws_syncr configuration
+                        # So, we just set it to the current owner
+                        acl_options["AccessControlPolicy"]["Owner"] = current_acl.owner
+
                     current_acl.put(**acl_options)
 
