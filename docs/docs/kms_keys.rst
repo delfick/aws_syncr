@@ -21,6 +21,8 @@ configuration:
       project:
         location: 'ap-southeast-2'
         description: Key for my amazing project`
+        admin_users:
+            - { iam: role/encryption/encryptor }
 
         grant:
           - grantee: { iam: "role/ci/project-encryptor" }
@@ -47,6 +49,12 @@ description
 
 grant
     A list of grants to apply to the key
+
+permission
+    A list of policies to add to the key policy
+
+admin_users
+    A list of iam users to add ``kms:*`` permissions for in the key policy
 
 Statements
 ----------

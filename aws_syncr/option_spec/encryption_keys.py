@@ -29,9 +29,14 @@ class encryption_keys_spec(Spec):
             , description = formatted_string
             , grant = sb.listof(grant_statement_spec('key', key_name))
             , admin_users = sb.listof(sb.any_spec())
+            , permission = sb.listof(sb.dictionary_spec())
+            , no_root_access = sb.defaulted(sb.boolean(), False)
             ).normalise(meta, val)
 
-        statements = [{"principal": {"iam": "root"}, "action": "kms:*", "resource": "*", "Sid": ""}]
+        statements = key.permission
+        if not key.no_root_access:
+            statements.append({"principal": {"iam": "root"}, "action": "kms:*", "resource": "*", "Sid": ""})
+
         if key.admin_users:
             for admin_user in key.admin_users:
                 statements.append({"principal": admin_user, "action": "kms:*", "resource": { "kms": "__self__" }, "Sid": ""})
@@ -57,6 +62,8 @@ class EncryptionKey(dictobj):
         , 'description': "Description of the key"
         , 'admin_users': "The admin_users for this key"
         , 'grant': "The grants given to the key"
+        , "permission": "The permissions given to the key"
+        , "no_root_access": "Whether to not give root access to the policy"
         }
 
 def __register__():
