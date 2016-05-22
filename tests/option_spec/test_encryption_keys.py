@@ -91,7 +91,7 @@ describe TestCase, "EncryptionKeys":
             self.amazon.kms = self.kms
             self.aws_syncr = mock.Mock("aws_syncr")
 
-            self.key = EncryptionKey(name=self.name, location=self.location, description=self.description, grant=self.grant, admin_users=[])
+            self.key = EncryptionKey(name=self.name, location=self.location, description=self.description, grant=self.grant, admin_users=[], permission=[], no_root_access=False)
             self.key.policy = self.policy
             self.keys = EncryptionKeys(items=[self.key])
 
@@ -121,14 +121,14 @@ describe TestCase, "__register__":
         spec = {"key1": key1_spec, "key2": key2_spec}
         result = __register__()[(10, "encryption_keys")].normalise(Meta(everything, []).at("encryption_keys"), spec)
 
-        key1_expected = EncryptionKey(name="key1", location="ap-southeast-2", description="", admin_users=[]
+        key1_expected = EncryptionKey(name="key1", location="ap-southeast-2", description="", admin_users=[], permission=[{'action': 'kms:*', 'Sid': '', 'resource': '*', 'principal': {'iam': 'root'}}], no_root_access=False
             , grant=[GrantStatement(grantee=["arn:aws:iam::123456789123:role/bob"], operations=["Decrypt"], retiree=NotSpecified, constraints=NotSpecified, grant_tokens=NotSpecified)]
             )
         key1_expected.policy = Document(statements=[
             ResourcePolicyStatement(sid="", effect=NotSpecified, action=["kms:*"], notaction=NotSpecified, resource=["*"], notresource=NotSpecified, principal=[{"AWS": "arn:aws:iam::123456789123:root"}], notprincipal=NotSpecified, condition=NotSpecified, notcondition=NotSpecified)
             ])
 
-        key2_expected = EncryptionKey(name="key2", location="us-east-1", description="", admin_users=[]
+        key2_expected = EncryptionKey(name="key2", location="us-east-1", description="", admin_users=[], permission=[{'action': 'kms:*', 'Sid': '', 'resource': '*', 'principal': {'iam': 'root'}}], no_root_access=False
             , grant=[GrantStatement(grantee=["arn:aws:sts::123456789123:assumed-role/tim"], operations=["Encrypt", "GenerateDataKey"], retiree=NotSpecified, constraints=NotSpecified, grant_tokens=NotSpecified)]
             )
         key2_expected.policy = Document(statements=[
