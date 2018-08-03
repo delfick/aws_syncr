@@ -1,6 +1,6 @@
 from aws_syncr.errors import UserQuit
+from aws_syncr.compat import input
 
-from six.moves import input
 import readline
 import glob
 import os

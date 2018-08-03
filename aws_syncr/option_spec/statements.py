@@ -1,5 +1,6 @@
 from aws_syncr.option_spec.resources import resource_spec, iam_specs
 from aws_syncr.errors import BadOption, BadPolicy
+from aws_syncr.compat import string_types
 
 from input_algorithms.spec_base import NotSpecified, apply_validators
 from input_algorithms import spec_base as sb, validators
@@ -7,7 +8,6 @@ from input_algorithms.dictobj import dictobj
 from option_merge import MergedOptions
 from collections import OrderedDict
 from itertools import chain
-import six
 
 def capitalize(arg):
     sep = ""
@@ -84,7 +84,7 @@ class statement_spec(sb.Spec):
     def complain_about_missing_args(self, meta, kwargs):
         missing = []
         for arg in self.required:
-            if isinstance(arg, six.string_types):
+            if isinstance(arg, string_types):
                 arg = (arg, )
             available = sorted(list(set(list(chain.from_iterable([capitalize(thing) for thing in arg])))))
             if not any(kwargs.get(option, NotSpecified) is not NotSpecified for option in available):
@@ -294,7 +294,7 @@ class ResourcePolicyStatement(dictobj):
         result = {}
         string_results = []
         for item in val[key]:
-            if isinstance(item, six.string_types):
+            if isinstance(item, string_types):
                 string_results.append(item)
             else:
                 for service, lst in item.items():

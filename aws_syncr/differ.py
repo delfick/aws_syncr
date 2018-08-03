@@ -1,7 +1,8 @@
+from aws_syncr.compat import string_types
+
 from datadiff import diff
 import logging
 import json
-import six
 
 log = logging.getLogger("aws_syncr.operations.differ")
 
@@ -10,7 +11,7 @@ class Differ(object):
     def compare_two_documents(kls, doc1, doc2):
         """Compare two documents by converting them into json objects and back to strings and compare"""
         first = doc1
-        if isinstance(doc1, six.string_types):
+        if isinstance(doc1, string_types):
             try:
                 first = json.loads(doc1)
             except (ValueError, TypeError) as error:
@@ -19,7 +20,7 @@ class Differ(object):
                 return
 
         second = doc2
-        if isinstance(doc2, six.string_types):
+        if isinstance(doc2, string_types):
             try:
                 second = json.loads(doc2)
             except (ValueError, TypeError) as error:

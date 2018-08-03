@@ -1,6 +1,7 @@
 from aws_syncr.errors import BadTemplate, UnknownStage, UnsyncedGateway, UnknownEndpoint, AwsSyncrError
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.lambdas import Lambda
+from aws_syncr.compat import string_types
 
 from Crypto.Util import Counter
 from Crypto.Cipher import AES
@@ -18,7 +19,6 @@ import logging
 import base64
 import json
 import sys
-import six
 
 log = logging.getLogger("aws_syncr.option_spec.apigateway")
 
@@ -39,7 +39,7 @@ class formatted_dictionary(sb.Spec):
         for key, val in val.items():
             if type(val) is dict:
                 result[key] = self.formatted_dict(meta.at(key), val, chain)
-            elif isinstance(val, six.string_types):
+            elif isinstance(val, string_types):
                 result[key] = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at(key), val)
             else:
                 result[key] = val
@@ -70,7 +70,7 @@ secret_spec = lambda: sb.create_spec(Secret
 
 class certificate_spec(Spec):
     def normalise(self, meta, val):
-        if isinstance(val, six.string_types):
+        if isinstance(val, string_types):
             val = formatted_string().normalise(meta, val)
 
         return sb.create_spec(Certificate
@@ -101,7 +101,7 @@ class custom_domain_name_spec(Spec):
         return result
 
 formatted_dictionary_or_string = lambda : sb.match_spec(
-      (six.string_types, formatted_string())
+      (string_types, formatted_string())
     , fallback = sb.dictof(sb.string_spec(), formatted_string())
     )
 
@@ -131,7 +131,7 @@ class aws_resource_spec(Spec):
             ).normalise(meta, val)
 
         for key in ('sample_event', 'desired_output_for_test'):
-            if isinstance(result[key], six.string_types):
+            if isinstance(result[key], string_types):
                 v = result[key]
                 if v.startswith("{") and v.endswith("}"):
                     v = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at(key), v)
@@ -143,7 +143,7 @@ class aws_resource_spec(Spec):
         if result.location is not NotSpecified and location is not None:
             raise BadSpecValue("Please don't specify a defined lambda function and location at the same time", meta=meta)
 
-        if not isinstance(function, six.string_types):
+        if not isinstance(function, string_types):
             location = function.location
             function = function.name
 
@@ -172,7 +172,7 @@ class mock_resource_spec(Spec):
             ).normalise(meta, val)
 
         for key in ('sample_event', 'desired_output_for_test'):
-            if isinstance(result[key], six.string_types):
+            if isinstance(result[key], string_types):
                 v = result[key]
                 if v.startswith("{") and v.endswith("}"):
                     v = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at(key), v)
@@ -263,7 +263,7 @@ class LambdaIntegrationOptions(dictobj):
         arn = self.arn(accounts, environment)
         uri = "arn:aws:apigateway:{0}:lambda:path/2015-03-31/functions/{1}/invocations".format(gateway_location, arn)
         template = self.mapping.template
-        if not isinstance(template, six.string_types):
+        if not isinstance(template, string_types):
             template = json.dumps(template, sort_keys=True)
         request_templates = {self.mapping.content_type: template}
         return {'uri': uri, 'requestTemplates': request_templates, 'httpMethod': "POST"}
@@ -283,7 +283,7 @@ class MockIntegrationOptions(dictobj):
 
     def put_kwargs(self, gateway_location, accounts, environment):
         template = self.mapping.template
-        if not isinstance(template, six.string_types):
+        if not isinstance(template, string_types):
             template = json.dumps(template, sort_keys=True)
         return {'requestTemplates': {self.mapping.content_type: template}, 'httpMethod': self.http_method}
 

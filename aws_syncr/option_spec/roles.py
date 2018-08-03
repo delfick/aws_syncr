@@ -2,6 +2,7 @@ from aws_syncr.option_spec.statements import trust_statement_spec, permission_st
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.documents import Document
 from aws_syncr.errors import BadOption, BadTemplate
+from aws_syncr.compat import string_types
 
 from input_algorithms.spec_base import NotSpecified
 from input_algorithms.errors import BadSpecValue
@@ -10,7 +11,6 @@ from input_algorithms import spec_base as sb
 
 from option_merge import MergedOptions
 import logging
-import six
 
 log = logging.getLogger("aws_syncr.option_spec.roles")
 
@@ -24,7 +24,7 @@ class role_spec(object):
 
             val = MergedOptions.using(meta.everything['templates'][template], val)
 
-        formatted_string = sb.formatted(sb.string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
+        formatted_string = sb.formatted(sb.string_spec(), MergedOptionStringFormatter, expected_type=string_types)
         role_name = meta.key_names()['_key_name_0']
 
         original_permission = sb.listof(permission_dict()).normalise(meta.at("permission"), NotSpecified if "permission" not in val else val["permission"])

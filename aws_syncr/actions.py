@@ -1,5 +1,6 @@
 from aws_syncr.filename_completer import filename_prompt, setup_completer
 from aws_syncr.formatter import MergedOptionStringFormatter
+from aws_syncr.compat import input, string_types
 from aws_syncr.errors import AwsSyncrError
 from aws_syncr.errors import UserQuit
 
@@ -7,7 +8,6 @@ from Crypto.Util import Counter
 from Crypto.Cipher import AES
 
 from option_merge import MergedOptions
-from six.moves import input
 from textwrap import dedent
 import itertools
 import readline
@@ -16,7 +16,6 @@ import base64
 import shlex
 import yaml
 import sys
-import six
 import os
 
 log = logging.getLogger("aws_syncr.actions")
@@ -97,7 +96,7 @@ def find_certificate_source(configuration, gateway, certificate):
                         return self.lst[index]
                 chain = StickyChain()
 
-                if isinstance(var, six.string_types):
+                if isinstance(var, string_types):
                     result = MergedOptionStringFormatter(configuration, '.'.join(location), value=var, chain=chain).format()
                     if not isinstance(result, dict) and not isinstance(result, MergedOptions) and (not hasattr(result, 'is_dict') or not result.is_dict):
                         raise AwsSyncrError("certificate should be pointing at a dictionary", got=result, chain=['.'.join(location)] + chain)

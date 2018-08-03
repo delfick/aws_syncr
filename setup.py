@@ -12,7 +12,6 @@ setup(
       , "option_merge==0.9.9.7"
       , "input_algorithms==0.4.5.5"
 
-      , "six"
       , "datadiff"
       , "requests"
 

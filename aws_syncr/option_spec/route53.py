@@ -1,4 +1,5 @@
 from aws_syncr.formatter import MergedOptionStringFormatter
+from aws_syncr.compat import string_types
 from aws_syncr.errors import BadTemplate
 
 from input_algorithms.errors import BadSpecValue
@@ -6,7 +7,6 @@ from input_algorithms.dictobj import dictobj
 from input_algorithms import spec_base as sb
 
 from option_merge import MergedOptions
-import six
 
 class route_spec(sb.Spec):
     def normalise(self, meta, val):
@@ -31,7 +31,7 @@ class route_spec(sb.Spec):
         if not val.zone.endswith("."):
             val.zone = "{0}.".format(val.zone)
 
-        if not isinstance(val.record_target, six.string_types):
+        if not isinstance(val.record_target, string_types):
             if not hasattr(val.record_target, "cname"):
                 raise BadSpecValue("record_target must point at an object with a cname property", got=type(val.record_target), meta=meta)
             val.record_target = val.record_target.cname

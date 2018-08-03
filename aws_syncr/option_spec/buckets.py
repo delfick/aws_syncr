@@ -2,6 +2,7 @@ from aws_syncr.option_spec.statements import resource_policy_statement_spec, res
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.errors import BadTemplate, BadConfiguration
 from aws_syncr.option_spec.documents import Document
+from aws_syncr.compat import urlparse, string_types
 from aws_syncr.amazon import bucket_acls as Acls
 
 from input_algorithms.spec_base import NotSpecified
@@ -10,11 +11,9 @@ from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
 from input_algorithms import validators
 
-from six.moves.urllib.parse import urlparse
 from option_merge import MergedOptions
 import hashlib
 import json
-import six
 
 class buckets_spec(Spec):
     def normalise(self, meta, val):
@@ -26,7 +25,7 @@ class buckets_spec(Spec):
 
             val = MergedOptions.using(meta.everything['templates'][template], val)
 
-        formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
+        formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=string_types)
         bucket_name = meta.key_names()['_key_name_0']
 
         original_permission = sb.listof(resource_policy_dict()).normalise(meta.at("permission"), NotSpecified if "permission" not in val else val["permission"])
@@ -43,7 +42,7 @@ class buckets_spec(Spec):
         val['permission'] = original_permission + deny_permission + allow_permission
 
         return sb.create_spec(Bucket
-            , acl = sb.defaulted(sb.match_spec((six.string_types, canned_acl_spec()), (dict, acl_statement_spec('acl', 'acl'))), None)
+            , acl = sb.defaulted(sb.match_spec((string_types, canned_acl_spec()), (dict, acl_statement_spec('acl', 'acl'))), None)
             , name = sb.overridden(bucket_name)
             , location = sb.defaulted(formatted_string, None)
             , permission = sb.container_spec(Document, sb.listof(resource_policy_statement_spec('bucket', bucket_name)))
@@ -64,7 +63,7 @@ class acl_grant_spec(statement_spec):
     def final_kls(self, *args, **kwargs):
         def ret(owner):
             result = {"Grantee": kwargs["grantee"], "Permission": kwargs["permission"]}
-            if isinstance(kwargs['grantee'], six.string_types):
+            if isinstance(kwargs['grantee'], string_types):
                 if result["Grantee"] == "__owner__":
                     result["Grantee"] = owner
                 else:

@@ -8,6 +8,7 @@ from aws_syncr.option_spec.encryption_keys import encryption_keys_spec, Encrypti
 from aws_syncr.option_spec.buckets import buckets_spec, Buckets
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.roles import role_spec, Roles
+from aws_syncr.compat import string_types
 from aws_syncr.errors import BadOption
 
 from input_algorithms.spec_base import (
@@ -17,7 +18,6 @@ from input_algorithms.spec_base import (
 from input_algorithms.validators import Validator
 from input_algorithms.dictobj import dictobj
 
-import six
 import re
 
 regexes = {
@@ -50,7 +50,7 @@ class AwsSyncrSpec(object):
     @property
     def aws_syncr_spec(self):
         """Spec for aws_syncr options"""
-        formatted_string = formatted(string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
+        formatted_string = formatted(string_spec(), MergedOptionStringFormatter, expected_type=string_types)
         return create_spec(AwsSyncr
             , extra = defaulted(formatted_string, "")
             , stage = defaulted(formatted_string, "")
@@ -65,7 +65,7 @@ class AwsSyncrSpec(object):
     @property
     def accounts_spec(self):
         """Spec for accounts options"""
-        formatted_account_id = formatted(valid_account_id(), MergedOptionStringFormatter, expected_type=six.string_types)
+        formatted_account_id = formatted(valid_account_id(), MergedOptionStringFormatter, expected_type=string_types)
         return dictof(string_spec(), formatted_account_id)
 
     @property

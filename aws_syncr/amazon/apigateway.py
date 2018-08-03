@@ -1,5 +1,6 @@
 from aws_syncr.amazon.common import AmazonMixin
 from aws_syncr.errors import AwsSyncrError
+from aws_syncr.compat import string_types
 from aws_syncr.differ import Differ
 
 from input_algorithms.spec_base import NotSpecified
@@ -8,7 +9,6 @@ import boto3
 
 import logging
 import json
-import six
 import re
 
 log = logging.getLogger("aws_syncr.amazon.apigateway")
@@ -457,7 +457,7 @@ class ApiGateway(AmazonMixin, object):
     def test_stage(self, gateway_info, location, stage, method, endpoint, sample_event, desired_output_for_test):
         kwargs = {}
         if sample_event:
-            if not isinstance(sample_event, six.string_types) and sample_event is not NotSpecified:
+            if not isinstance(sample_event, string_types) and sample_event is not NotSpecified:
                 kwargs['data'] = json.dumps(dict(sample_event.items()))
 
         # Find the url to use
@@ -497,7 +497,7 @@ class ApiGateway(AmazonMixin, object):
         else:
             # Say we succeeded if we meet the desired_output_for_test
             if desired_output_for_test and desired_output_for_test is not NotSpecified:
-                if isinstance(desired_output_for_test, six.string_types):
+                if isinstance(desired_output_for_test, string_types):
                     content = res.content.decode('utf-8')
                     if not re.match(desired_output_for_test, content):
                         print("content '{0}' does not match pattern '{1}'".format(content, desired_output_for_test))

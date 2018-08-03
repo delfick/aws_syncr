@@ -1,5 +1,6 @@
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.resources import resource_spec
+from aws_syncr.compat import string_types
 from aws_syncr.errors import BadTemplate
 
 from input_algorithms.spec_base import NotSpecified
@@ -15,7 +16,6 @@ import logging
 import fnmatch
 import zipfile
 import json
-import six
 import re
 import os
 
@@ -31,7 +31,7 @@ class formatted_dictionary(sb.Spec):
         for key, val in val.items():
             if type(val) is dict:
                 result[key] = self.formatted_dict(meta.at(key), val, chain)
-            elif isinstance(val, six.string_types):
+            elif isinstance(val, string_types):
                 result[key] = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.at(key), val)
             else:
                 result[key] = val
@@ -108,7 +108,7 @@ class function_code_spec(sb.Spec):
                 ).normalise(meta, {"code": val['inline']})
         else:
             directory = val['directory']
-            if isinstance(val['directory'], six.string_types):
+            if isinstance(val['directory'], string_types):
                 directory = {"directory": val['directory']}
 
             if 'directory' in directory:
@@ -130,7 +130,7 @@ class lambdas_spec(Spec):
 
             val = MergedOptions.using(meta.everything['templates'][template], val)
 
-        formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
+        formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=string_types)
         function_name = meta.key_names()['_key_name_0']
 
         val = sb.create_spec(Lambda
@@ -191,7 +191,7 @@ class Lambda(dictobj):
 
         if self.desired_output_for_test and self.desired_output_for_test is not NotSpecified:
             content = output['Payload']
-            if isinstance(self.desired_output_for_test, six.string_types):
+            if isinstance(self.desired_output_for_test, string_types):
                 if not re.match(self.desired_output_for_test, content):
                     print("content '{0}' does not match pattern '{1}'".format(content, self.desired_output_for_test))
                     return False

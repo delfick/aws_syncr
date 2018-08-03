@@ -1,6 +1,7 @@
 from aws_syncr.option_spec.statements import grant_statement_spec, resource_policy_statement_spec
 from aws_syncr.formatter import MergedOptionStringFormatter
 from aws_syncr.option_spec.documents import Document
+from aws_syncr.compat import string_types
 from aws_syncr.errors import BadTemplate
 
 from input_algorithms import spec_base as sb
@@ -8,7 +9,6 @@ from input_algorithms.spec_base import Spec
 from input_algorithms.dictobj import dictobj
 
 from option_merge import MergedOptions
-import six
 
 class encryption_keys_spec(Spec):
     def normalise(self, meta, val):
@@ -20,7 +20,7 @@ class encryption_keys_spec(Spec):
 
             val = MergedOptions.using(meta.everything['templates'][template], val)
 
-        formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=six.string_types)
+        formatted_string = sb.formatted(sb.string_or_int_as_string_spec(), MergedOptionStringFormatter, expected_type=string_types)
         key_name = meta.key_names()['_key_name_0']
 
         key = sb.create_spec(EncryptionKey

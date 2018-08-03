@@ -1,9 +1,9 @@
 from aws_syncr.formatter import MergedOptionStringFormatter
+from aws_syncr.compat import string_types
 from aws_syncr.errors import BadPolicy
 
 from input_algorithms.spec_base import NotSpecified
 from input_algorithms import spec_base as sb
-import six
 
 class resource_spec_base(sb.Spec):
     def setup(self, resource, self_type, self_name):
@@ -53,7 +53,7 @@ class iam_specs(resource_spec_base):
                     else:
                         has_self = True
                 else:
-                    if isinstance(name, six.string_types):
+                    if isinstance(name, string_types):
                         name = sb.formatted(sb.string_spec(), formatter=MergedOptionStringFormatter).normalise(meta.indexed_at(index), name)
                     pairs.append((name, account_id))
 
@@ -105,7 +105,7 @@ class kms_specs(resource_spec_base):
                     location = self.location(meta)
 
                 if not alias:
-                    if isinstance(key_id, six.string_types):
+                    if isinstance(key_id, string_types):
                         alias = key_id
                     else:
                         alias = key_id.get("alias")
@@ -144,7 +144,7 @@ class resource_spec(sb.Spec):
             kms_spec = kms_specs(item, self.self_type, self.self_name)
             arn_spec = arn_specs(item, self.self_type, self.self_name)
 
-            if isinstance(item, six.string_types):
+            if isinstance(item, string_types):
                 result.append(item)
             else:
                 types = (("iam", iam_spec), ("kms", kms_spec), ("s3", s3_spec), ("arn", arn_spec))
