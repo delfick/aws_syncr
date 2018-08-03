@@ -302,4 +302,3 @@ describe TestCase, "__register__":
             changes = list(Differ.compare_two_documents(expected, generated))
             assert changes is not None
             self.assertEqual(len(changes), 0, '\n'.join(changes))
-

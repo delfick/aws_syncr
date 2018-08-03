@@ -65,4 +65,3 @@ def custom_prompt(msg, delims="", completer=lambda: None):
 def filename_prompt(msg, delims="/"):
     completer = FilenameCompleter().complete
     return custom_prompt(msg, delims, completer)
-

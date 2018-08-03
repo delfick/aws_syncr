@@ -61,4 +61,3 @@ class UnknownZone(AwsSyncrError):
 
 class UnknownEndpoint(AwsSyncrError):
     desc = "Unknown endpoint"
-

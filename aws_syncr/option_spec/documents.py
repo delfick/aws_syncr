@@ -18,4 +18,3 @@ class Document(dictobj):
             return json.dumps(document, indent=2)
         except (TypeError, ValueError) as err:
             raise InvalidDocument("Document wasn't valid json", error=err, document=document)
-

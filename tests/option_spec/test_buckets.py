@@ -542,4 +542,3 @@ describe TestCase, "Registering buckets":
             print("=== Bucket {0} ===".format(name))
             changes = list(Differ.compare_two_documents(expected, generated))
             self.assertEqual(len(changes), 0, '\n'.join(changes))
-

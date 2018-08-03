@@ -156,4 +156,3 @@ class resource_spec(sb.Spec):
                         for found in spec.normalise(meta.indexed_at(index).at(typ), item[typ]):
                             result.append(found)
         return sorted(result)
-

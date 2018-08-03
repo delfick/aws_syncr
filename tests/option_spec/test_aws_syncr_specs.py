@@ -33,4 +33,3 @@ describe TestCase, "Aws_syncr":
             everything = {"loc": "the_location", "env": "totes"}
             expected = {"artifact": "", "stage": "", "debug": False, "extra": "", "dry_run": False, "location": "the_location", "environment": "totes", "config_folder": config_folder}
             self.assertEqual(AwsSyncrSpec().aws_syncr_spec.normalise(Meta(everything, []), aws_syncr), expected)
-

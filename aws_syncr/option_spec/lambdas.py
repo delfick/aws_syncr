@@ -266,4 +266,3 @@ class DirectoryCode(dictobj):
 
 def __register__():
     return {(22, "lambda"): sb.container_spec(Lambdas, sb.dictof(sb.string_spec(), lambdas_spec()))}
-

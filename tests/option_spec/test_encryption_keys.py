@@ -137,4 +137,3 @@ describe TestCase, "__register__":
 
         keys = EncryptionKeys(items={"key1": key1_expected, "key2": key2_expected})
         self.assertEqual(result, keys)
-

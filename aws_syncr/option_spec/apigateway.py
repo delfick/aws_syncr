@@ -444,4 +444,3 @@ class Gateway(dictobj):
 
 def __register__():
     return {(99, "apigateway"): sb.container_spec(Gateways, sb.dictof(sb.string_spec(), gateways_spec()))}
-

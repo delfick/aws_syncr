@@ -248,4 +248,3 @@ class S3(AmazonMixin, object):
                         acl_options["AccessControlPolicy"]["Owner"] = current_acl.owner
 
                     current_acl.put(**acl_options)
-

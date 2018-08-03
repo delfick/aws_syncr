@@ -89,4 +89,3 @@ Run the following::
 Or use tox::
 
     $ tox
-

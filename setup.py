@@ -43,4 +43,3 @@ setup(
     , license = "MIT"
     , keywords = "aws"
     )
-

@@ -139,4 +139,3 @@ class Collector(Collector):
                         return getattr(aws_syncr_spec, "{0}_spec".format(thing)).normalise(meta, v)
                 return converter
             configuration.add_converter(Converter(convert=make_converter(thing), convert_path=[thing]))
-

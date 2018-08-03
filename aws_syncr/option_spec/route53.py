@@ -63,4 +63,3 @@ class DNSRoute(dictobj):
 
 def __register__():
     return {(100, "dns"): sb.container_spec(DNSRoutes, sb.dictof(sb.string_spec(), route_spec()))}
-

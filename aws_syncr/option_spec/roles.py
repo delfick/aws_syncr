@@ -81,4 +81,3 @@ class Role(dictobj):
 
 def __register__():
     return {(21, "roles"): sb.container_spec(Roles, sb.dictof(sb.string_spec(), role_spec()))}
-

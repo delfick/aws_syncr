@@ -129,4 +129,3 @@ class Lambdas(AmazonMixin, object):
                     , Principal = new_statement["Principal"]["Service"]
                     , SourceArn = gateway_arn
                     )
-

@@ -510,4 +510,3 @@ class ApiGateway(AmazonMixin, object):
                         return False
 
         return True
-

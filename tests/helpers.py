@@ -42,4 +42,3 @@ class TestCase(UnitTestTestCase, DelfickErrorTestMixin):
         depre = DeprecatedKey(key=key, reason=reason, meta=meta)
         with self.fuzzyAssertRaisesError(BadSpecValue, "Failed to validate", _errors=[depre]):
             yield
-

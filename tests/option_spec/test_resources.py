@@ -383,4 +383,3 @@ describe TestCase, "resource_spec":
         spec = resource_spec("s3", "blah", only=['s3'])
         with self.fuzzyAssertRaisesError(BadPolicy, "Sorry, don't support this resource type here", wanted="iam", available=['s3'], meta=self.meta):
             list(spec.normalise(self.meta, {"iam": "role/bob"}))
-

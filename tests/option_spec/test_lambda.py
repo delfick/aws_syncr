@@ -391,4 +391,3 @@ describe TestCase, "__register__":
                 )
             })
         )
-

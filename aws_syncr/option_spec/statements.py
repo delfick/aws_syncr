@@ -394,4 +394,3 @@ class GrantStatement(dictobj):
                     statement[thing] = sorted(statement[thing])
 
         return statement
-

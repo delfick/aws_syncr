@@ -20,4 +20,3 @@ AllUsersGroup = {"URI": "http://acs.amazonaws.com/groups/global/AllUsers", "Type
 LogDeliveryGroup = {"URI": "http://acs.amazonaws.com/groups/s3/LogDelivery", "Type": "Group"}
 
 EC2Group = {'Type': 'CanonicalUser', 'DisplayName': 'za-team', 'ID': '6aa5a366c34c1cbe25dc49211496e913e0351eb0e8c37aa3477e40942ec6b97c'}
-

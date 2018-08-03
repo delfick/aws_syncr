@@ -65,4 +65,3 @@ class AmazonMixin:
                 raise
             else:
                 self.amazon.changes = True
-

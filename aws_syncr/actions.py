@@ -334,4 +334,3 @@ def execute_as(collector):
 
     # Turn into the command we want to execute
     os.execvpe(parts[0], parts, env)
-

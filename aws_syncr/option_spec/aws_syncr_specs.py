@@ -72,4 +72,3 @@ class AwsSyncrSpec(object):
     def templates_spec(self):
         """Spec for templates"""
         return dictof(string_spec(), dictionary_spec())
-

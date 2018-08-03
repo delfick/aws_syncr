@@ -60,4 +60,3 @@ class Differ(object):
             if not first or not second or first != second:
                 for line in lines:
                     yield line
-

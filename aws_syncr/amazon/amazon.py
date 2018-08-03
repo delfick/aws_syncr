@@ -59,4 +59,3 @@ class Amazon(AmazonMixin, object):
 
         self._validating = False
         self._validated = True
-

@@ -174,4 +174,3 @@ class Iam(AmazonMixin, object):
             , 'AWS_SECURITY_TOKEN': creds["Credentials"]["SessionToken"]
             , 'AWS_SESSION_TOKEN': creds["Credentials"]["SessionToken"]
             }
-

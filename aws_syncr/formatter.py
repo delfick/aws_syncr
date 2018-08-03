@@ -72,4 +72,3 @@ class MergedOptionStringFormatter(StringFormatter):
 
     def special_format_field(self, obj, format_spec):
         """Know about any special formats"""
-
