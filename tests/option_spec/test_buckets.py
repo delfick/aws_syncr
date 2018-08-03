@@ -211,7 +211,7 @@ describe TestCase, "Buckets":
         it "can create a bucket that doesn't exist":
             self.permission.statements = []
             s3 = self.amazon.s3 = mock.Mock(name="s3")
-            s3.bucket_info.return_value = {}
+            s3.bucket_info.return_value = mock.Mock(name="bucket_info", creation_date=None)
             self.buckets.sync_one(self.aws_syncr, self.amazon, self.bucket)
             s3.bucket_info.assert_called_once_with(self.name)
             s3.create_bucket.assert_called_once_with(self.name, "", self.bucket)
