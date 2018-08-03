@@ -38,9 +38,9 @@ setup(
     # metadata for upload to PyPI
     , url = "https://github.com/delfick/aws_syncr"
     , author = "Stephen Moore"
-    , author_email = "stephen.moore@rea-group.com"
+    , author_email = "delfick755@gmail.com"
     , description = "Application that reads yaml and syncs definitions with amazon"
-    , license = "WTFPL"
+    , license = "MIT"
     , keywords = "aws"
     )
 
