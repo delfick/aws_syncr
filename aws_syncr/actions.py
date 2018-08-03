@@ -293,7 +293,9 @@ def encrypt_certificate(collector):
             if not location or not os.path.isfile(location):
                 print("Please give a location to a file that exists!")
 
-        data = open(location).read()
+        with open(location, 'rb') as fle:
+            data = fle.read()
+
         counter = Counter.new(128)
         encryptor = AES.new(plaintext_data_key[:32], AES.MODE_CTR, counter=counter)
         secrets[name] = base64.b64encode(encryptor.encrypt(data)).decode('utf-8')
