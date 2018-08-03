@@ -239,6 +239,7 @@ class InlineCode(dictobj):
         with tempfile.NamedTemporaryFile(suffix=".zip") as fle:
             with self.code_in_file() as filename:
                 log.info("Making zipfile")
+                os.chmod(filename, 0o444)
                 with zipfile.ZipFile(fle.name, "w") as zf:
                     zf.write(filename, self.arcname)
             yield fle.name
