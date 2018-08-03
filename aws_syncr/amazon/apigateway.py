@@ -476,7 +476,7 @@ class ApiGateway(AmazonMixin, object):
         for api_key in gateway_info['api_keys']:
             if stagekey in api_key['stageKeys']:
                 log.info("Found an api key to use ({0})".format(api_key['name']))
-                api_key = api_key['id']
+                api_key = self.client(location).get_api_key(apiKey=api_key['id'], includeValue=True)["value"]
                 break
 
         # Use the api key if it is required

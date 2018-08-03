@@ -15,7 +15,7 @@ setup(
       , "datadiff"
       , "requests"
 
-      , "boto3==1.2.1"
+      , "boto3==1.7.69"
       , "pyYaml==3.10"
       , 'pycryptodome==3.6.4'
       ]
