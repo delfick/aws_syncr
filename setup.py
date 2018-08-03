@@ -8,15 +8,15 @@ setup(
     , include_package_data = True
 
     , install_requires =
-      [ "delfick_app==0.7.4.1"
-      , "option_merge==0.9.9.7"
-      , "input_algorithms==0.4.5.5"
+      [ "delfick_app==0.9.6"
+      , "option_merge==1.6"
+      , "input_algorithms==0.6.0"
 
       , "datadiff"
       , "requests"
 
       , "boto3==1.7.69"
-      , "pyYaml==3.10"
+      , "pyYaml==3.13"
       , 'pycryptodome==3.6.4'
       ]
 

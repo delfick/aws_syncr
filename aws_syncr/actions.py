@@ -106,6 +106,9 @@ def find_certificate_source(configuration, gateway, certificate):
                     for info in configuration.storage.get_info(location, ignore_converters=True):
                         location = [str(part) for part in info.path.path]
 
+    if source and type(source) is list:
+        source = source[0]
+
     return location, source
 
 @an_action
