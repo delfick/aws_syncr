@@ -17,7 +17,7 @@ setup(
 
       , "boto3==1.7.69"
       , "pyYaml==3.13"
-      , 'pycryptodome==3.6.4'
+      , 'pycryptodome==3.6.6'
       ]
 
     , extras_require =
