@@ -89,3 +89,16 @@ Run the following::
 Or use tox::
 
     $ tox
+
+Changelog
+---------
+
+0.6.1
+    * Update pycryptodome because of CVE-2018-15560
+
+0.6
+    * Change from PyCrypto to pycryptodome
+    * Update other dependencies
+
+Before 0.6
+    * No changelog was kept
