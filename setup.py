@@ -40,6 +40,7 @@ setup(
     , author = "Stephen Moore"
     , author_email = "delfick755@gmail.com"
     , description = "Application that reads yaml and syncs definitions with amazon"
+    , long_description = open("README.rst").read()
     , license = "MIT"
     , keywords = "aws"
     )
