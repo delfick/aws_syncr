@@ -16,7 +16,7 @@ setup(
       , "requests"
 
       , "boto3==1.7.69"
-      , "pyYaml==3.13"
+      , "ruamel.yaml==0.15.87"
       , 'pycryptodome==3.6.6'
       ]
 

@@ -13,10 +13,11 @@ from option_merge.collector import Collector
 from option_merge import MergedOptions
 from option_merge import Converter
 
+from ruamel.yaml import YAML
 import pkg_resources
+import ruamel.yaml
 import tempfile
 import logging
-import yaml
 import json
 import imp
 import os
@@ -92,8 +93,8 @@ class Collector(Collector):
     def read_file(self, location):
         """Read in a yaml file and return as a python object"""
         try:
-            return yaml.load(open(location))
-        except (yaml.parser.ParserError, yaml.scanner.ScannerError) as error:
+            return YAML(typ='safe').load(open(location))
+        except (ruamel.yaml.parser.ParserError, ruamel.yaml.scanner.ScannerError) as error:
             raise self.BadFileErrorKls("Failed to read yaml", location=location, error_type=error.__class__.__name__, error="{0}{1}".format(error.problem, error.problem_mark))
 
     def add_configuration(self, configuration, collect_another_source, done, result, src):

@@ -93,6 +93,9 @@ Or use tox::
 Changelog
 ---------
 
+0.7.0
+    * Started using ruamel.yaml instead of PyYaml to load configuration
+
 0.6.1
     * Update pycryptodome because of CVE-2018-15560
 
