@@ -22,5 +22,8 @@ source_suffix = '.rst'
 
 pygments_style = 'pastie'
 
-# Add options specific to this project
-execfile(os.path.join(this_dir, '../conf.py'), globals(), locals())
+copyright = 'delfick'
+project = 'aws_syncr'
+
+version = '0.1'
+release = '0.1'
