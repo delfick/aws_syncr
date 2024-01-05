@@ -17,7 +17,7 @@ setup(
 
       , "boto3==1.7.69"
       , "ruamel.yaml==0.15.87"
-      , 'pycryptodome==3.6.6'
+      , 'pycryptodome==3.19.1'
       ]
 
     , extras_require =
